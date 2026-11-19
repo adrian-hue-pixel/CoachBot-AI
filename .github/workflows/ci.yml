@@ -34,3 +34,10 @@ jobs:
       - run: python -m pytest -q -W error
         env:
           COACHBOT_BROWSER_TEST: "1"
+          COACHBOT_EVIDENCE_DIR: ${{ runner.temp }}/coachbot-demo
+      - name: Save desktop and mobile demo screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: coachbot-demo-screenshots
+          path: ${{ runner.temp }}/coachbot-demo
+          if-no-files-found: error

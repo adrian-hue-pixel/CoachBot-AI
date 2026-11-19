@@ -8,7 +8,7 @@ from coach import DEFAULT_MODEL
 from exercise_bank import FREE_TEXT, SUPPORTED, load_bank, plan_mode
 from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
-from ui.components import render_header, render_plan, render_shield, render_skeleton
+from ui.components import render_header, render_plan, render_plan_preview, render_shield, render_skeleton
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
                       render_exports, render_preparation, safety_badge)
@@ -77,9 +77,9 @@ def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT
         loading.empty()
 
 
-def show_outcome(outcome, feature, locale, demo, submitted, reduce_motion):
+def show_outcome(outcome, profile, feature, locale, demo, submitted, reduce_motion):
     if outcome is None:
-        st.info("Complete the athlete profile to see your coaching plan.")
+        render_plan_preview(profile, feature)
         return
     kind, content = outcome
     if kind == "blocked":
@@ -100,12 +100,14 @@ def main():
     st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide")
     inject_css()
     selection = init_wizard()
-    with st.container(key="cb_settings", horizontal=True, horizontal_alignment="right"):
+    key, model = gemini_settings()
+    with st.container(key="cb_settings", horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
+        if not key:
+            st.info("Demo mode · Sample responses")
+        else:
+            st.caption("Live mode · Gemini generation")
         reduce_motion = st.toggle("Reduce motion", key="cb_reduce_motion")
     render_header(selection[0], selection[1], reduce_motion)
-    key, model = gemini_settings()
-    if not key:
-        st.info("Demo mode · Coaching examples use demo data.")
     locale = LANGUAGES[st.session_state[DRAFT]["language"]]
     entries = current_entries()
     feature = selection[2]
@@ -115,7 +117,7 @@ def main():
         key="cb_sections", on_change="rerun",
     )
     with plan_tab, st.container(key="cb_workbench"):
-        profile_col, output_col = st.columns([1, 1.24], gap="medium")
+        profile_col, output_col = st.columns([1, 1.14], gap="medium")
         with profile_col, st.container(key="cb_wizard"):
             submitted = profile_wizard(demo=not key)
         with output_col, st.container(key="cb_output"):
@@ -132,14 +134,14 @@ def main():
                     submitted, feature, locale, entries, key, model, mode=mode,
                     verify=st.session_state[DRAFT]["verify_plan"],
                 )
-            show_outcome(st.session_state.get("cb_outcome"), feature, locale, not key,
+            show_outcome(st.session_state.get("cb_outcome"), profile_from_draft(), feature, locale, not key,
                          submitted is not None, reduce_motion)
     profile = profile_from_draft()
-    with checkin_tab:
+    with checkin_tab, st.container(key="cb_checkins_panel"):
         render_checkins(profile, locale, reduce_motion)
-    with preparation_tab:
+    with preparation_tab, st.container(key="cb_preparation_panel"):
         render_preparation(reduce_motion)
-    with chat_tab:
+    with chat_tab, st.container(key="cb_chat_panel"):
         render_chat(profile, locale, entries, key, model, reduce_motion)
     if lab_tab.open:
         from lab import render_lab

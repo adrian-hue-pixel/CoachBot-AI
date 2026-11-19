@@ -62,9 +62,10 @@ def _celebrate():
 
 def render_checkins(profile, locale, reduce_motion):
     st.subheader("Daily check-ins")
+    entry_col, progress_col = st.columns([1, 0.84], gap="large")
     today = local_today()
     entries = current_entries()
-    with st.form("cb_checkin_form"):
+    with entry_col, st.form("cb_checkin_form"):
         st.date_input("Check-in date", today, min_value=today - timedelta(days=6),
                       max_value=today, key="cb_checkin_date")
         st.selectbox("Day type", ["Rest day", "Practice day"], key="cb_day_type")
@@ -73,13 +74,14 @@ def render_checkins(profile, locale, reduce_motion):
         st.caption("Repeat entries keep the highest soreness and effort recorded for that day.")
         st.form_submit_button("Save check-in", on_click=_save_checkin)
     saved = st.session_state.pop("cb_checkin_saved", False)
-    if saved:
-        st.success("Check-in saved for this session.")
-    render_check_in_ring(len(entries))
-    if entries:
-        rest_days = sum(entry.rest_day for entry in entries.values())
-        st.caption(f"{rest_days} rest-day entries · {len(entries) - rest_days} practice-day entries")
-        st.caption("Rest and practice days count equally toward checking in consistently.")
+    with progress_col:
+        if saved:
+            st.success("Check-in saved for this session.")
+        render_check_in_ring(len(entries))
+        if entries:
+            rest_days = sum(entry.rest_day for entry in entries.values())
+            st.caption(f"{rest_days} rest-day entries · {len(entries) - rest_days} practice-day entries")
+        st.caption("Rest and practice days count equally toward your weekly check-ins.")
     rule = checkin_rule(entries)
     if rule:
         st.session_state.cb_training_paused = True
@@ -95,20 +97,23 @@ def render_checkins(profile, locale, reduce_motion):
 
 
 def render_preparation(reduce_motion):
-    st.subheader("Hydration planner")
-    with st.form("cb_hydration"):
-        start = st.time_input("Practice start time", time(16, 0))
-        duration = st.number_input("Practice duration (minutes)", min_value=1, max_value=360, value=60)
-        submitted = st.form_submit_button("Show water reminders")
-    if submitted and start is not None:
-        st.session_state.cb_hydration_schedule = hydration_schedule(start, duration)
-    for label, clock in st.session_state.get("cb_hydration_schedule", []):
-        st.text(f"{label} · {clock}")
-    if st.session_state.get("cb_hydration_schedule"):
-        st.caption("Agree water breaks with your coach.")
-    st.subheader("Pre-match breathing")
-    document = Path(__file__).with_name("breathing.html").read_text(encoding="utf-8")
-    st.iframe(document.replace("__REDUCE_MOTION__", str(reduce_motion).lower()), height=310)
+    hydration_col, breathing_col = st.columns(2, gap="large")
+    with hydration_col:
+        st.subheader("Hydration planner")
+        with st.form("cb_hydration"):
+            start = st.time_input("Practice start time", time(16, 0))
+            duration = st.number_input("Practice duration (minutes)", min_value=1, max_value=360, value=60)
+            submitted = st.form_submit_button("Show water reminders")
+        if submitted and start is not None:
+            st.session_state.cb_hydration_schedule = hydration_schedule(start, duration)
+        for label, clock in st.session_state.get("cb_hydration_schedule", []):
+            st.text(f"{label} · {clock}")
+        if st.session_state.get("cb_hydration_schedule"):
+            st.caption("Agree water breaks with your coach.")
+    with breathing_col:
+        st.subheader("Pre-match breathing")
+        document = Path(__file__).with_name("breathing.html").read_text(encoding="utf-8")
+        st.iframe(document.replace("__REDUCE_MOTION__", str(reduce_motion).lower()), height=310)
 
 
 def _chat_message(answer, verdict=None, stream=False):

@@ -28,13 +28,12 @@ def render_header(sport, position, reduce_motion):
         <div class="cb-mesh" aria-hidden="true"><i></i><i></i><i></i></div>
         <div class="cb-hero-copy">
             <h1>CoachBot <span>AI</span></h1>
-            <p class="cb-hero-lead">Build a training week around your sport, position and equipment.</p>
-            <p class="cb-hero-note">For education. Review AI suggestions with a coach or trusted adult.
-               For pain or injury, get advice from a qualified clinician.</p>
+            <p class="cb-hero-lead">Training plans for the way you play.</p>
+            <p class="cb-hero-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
         </div>
         <figure class="cb-field">
-            <figcaption><span>{escape(sport)}</span><strong>{escape(position)}</strong></figcaption>
             {field_svg(sport, position)}
+            <figcaption><span>{escape(sport)}</span><strong>{escape(position)}</strong></figcaption>
         </figure>
     </section>
     """)
@@ -43,13 +42,26 @@ def render_header(sport, position, reduce_motion):
 def render_stepper(steps, current, previous):
     items = []
     for index, name in enumerate(steps):
-        state = ' aria-current="step"' if index == current else ""
+        state = ' aria-current="step"' if index == current else ' class="cb-step-done"' if index < current else ""
         items.append(f'<li{state}><span aria-hidden="true">{index + 1:02d}</span>{escape(name)}</li>')
     st.html(f"""
     <ol class="cb-stepper" role="list" aria-label="Athlete profile steps"
         style="--cb-step-from:{previous * 100}%;--cb-step-to:{current * 100}%">
         {"".join(items)}
     </ol>
+    """)
+
+
+def render_plan_preview(profile, feature):
+    """Show the current profile choices before a plan has been generated."""
+    details = (("Sport", profile.sport), ("Position", profile.position), ("Module", feature))
+    rows = "".join(f"<div><dt>{label}</dt><dd>{escape(value)}</dd></div>" for label, value in details)
+    st.html(f"""
+    <div class="cb-plan-preview">
+        <div class="cb-preview-heading"><span aria-hidden="true">◎</span><h3>Your plan will appear here</h3></div>
+        <p>Finish your athlete profile to generate a plan for these choices.</p>
+        <dl>{rows}</dl>
+    </div>
     """)
 
 

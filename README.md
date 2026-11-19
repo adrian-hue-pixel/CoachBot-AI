@@ -155,7 +155,8 @@ Ask a PE teacher to review a sample without seeing the conditions. Report mean a
 
 ## Deploy and submit
 
-- [ ] Confirm the school-specified repository name `IDAI103<student_id>-adrian-rohith-c` and add the executable scripts and requirements.
+- [x] Publish the source and scripts in the [public GitHub repository](https://github.com/adrian-hue-pixel/CoachBot-AI).
+- [ ] Confirm whether your school requires the example repository name `IDAI103<student_id>-adrian-rohith-c`.
 - [ ] Check the **Python 3.12 wheel install** and **Python 3.12 tests** jobs on the target GitHub commit.
 - [ ] In Streamlit Community Cloud, select the repository, branch and `app.py`, then choose **Python 3.12** in Advanced settings. Put `GEMINI_API_KEY` and an optional `GEMINI_MODEL` in Cloud secrets.
 - [ ] Verify demo and live generation on desktop and a 360px mobile viewport. Inspect keyboard focus, label announcements, summary streaming and Reduce motion.
@@ -165,7 +166,7 @@ Ask a PE teacher to review a sample without seeing the conditions. Report mean a
 
 Community Cloud deployment settings are documented by [Streamlit](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
 
-**Project URLs** · GitHub repository and Streamlit Cloud deployment pending.
+**Project URLs** · [GitHub repository](https://github.com/adrian-hue-pixel/CoachBot-AI) · Public Streamlit URL pending.
 
 ## Demo mode and session safety
 
@@ -306,7 +307,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 
 | Brief deliverable | Evidence in this project | Status |
 | --- | --- | --- |
-| Functional GitHub repository and working script link | [Streamlit app](app.py), [Gemini prompts and client](coach.py), [evaluation script](evaluate.py), [dependencies](requirements.txt) | Source ready. Publish the repository and confirm assessor access. |
+| Functional GitHub repository and working script link | [Public source](https://github.com/adrian-hue-pixel/CoachBot-AI), [Streamlit app](app.py), [Gemini prompts and client](coach.py), [evaluation script](evaluate.py), [dependencies](requirements.txt) | Public source available. Confirm assessor access. |
 | Research findings and academic references | [Problem and research](#problem-and-research) and [linter benchmarks](#linter-benchmarks) | Research basis and synthetic metrics documented. |
 | Model, tuning techniques and at least ten prompts | [Modules and generation settings](#modules-and-generation-settings) | Eleven modules and V1/V2/V3 documented. |
 | Constrained safety design and exercise review | [Constrained plan mode](#constrained-plan-mode) and [exercise bank](exercises.json) | Bank and deterministic filter tests ready. PE teacher review pending. |
@@ -315,12 +316,20 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Local policy regression checks | [Offline red-team suite](#offline-red-team-suite) | Development and checksum-pinned held-out cases with separate Wilson intervals. |
 | Reproducibility and study planning | [Evaluation wrapper](run_evaluation.py) and [Prompt Lab workflow](#prompt-lab-workflow) | Per-model manifests, approximate power analysis and independent side-by-side views. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
-| API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
-| README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |
+| API key generation and overall execution evidence | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture real screenshots with every credential hidden. |
+| README demonstration screenshots | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture the deployed app on desktop and mobile. |
 | Public Streamlit deployment | [Deploy and submit](#deploy-and-submit) | Add the live URL and evidence of desktop and mobile use. |
 | Submission PDF | [Deploy and submit](#deploy-and-submit) | Include the repository URL, student name, registration number, CRS, course and school. |
 
-## Screenshot placeholders
+## Demo screenshots and evidence
+
+The [GitHub Actions workflow](https://github.com/adrian-hue-pixel/CoachBot-AI/actions) saves real Chromium screenshots from its demo-mode browser test as the `coachbot-demo-screenshots` artifact when the test succeeds. The desktop viewport is 1,440px and the mobile viewport is 360px. These screenshots document the wizard and generated demo plan independently of live Gemini validation.
+
+To capture the same evidence locally with a configured Playwright browser, run:
+
+```sh
+COACHBOT_BROWSER_TEST=1 COACHBOT_EVIDENCE_DIR=docs/screenshots python -m pytest -q -W error tests/test_mobile_accessibility.py
+```
 
 | Suggested filename | Evidence to capture |
 | --- | --- |

@@ -25,6 +25,32 @@ def _hex(value):
     return tuple(bytes.fromhex(value.lstrip("#")))
 
 
+def _capture_evidence(browser, url, mobile):
+    folder = os.getenv("COACHBOT_EVIDENCE_DIR")
+    if not folder:
+        return
+    from playwright.sync_api import expect
+
+    target = Path(folder)
+    target.mkdir(parents=True, exist_ok=True)
+    mobile.get_by_role("heading", name="Weekly timeline").scroll_into_view_if_needed()
+    mobile.screenshot(path=target / "mobile-plan.png", animations="disabled")
+
+    desktop = browser.new_page(viewport={"width": 1440, "height": 1000}, reduced_motion="reduce")
+    try:
+        desktop.goto(url)
+        expect(desktop.get_by_role("heading", name="CoachBot AI")).to_be_visible()
+        desktop.screenshot(path=target / "desktop-wizard.png", animations="disabled")
+        wizard = desktop.locator(".st-key-cb_wizard")
+        for _ in range(3):
+            wizard.get_by_role("button", name="Continue").click()
+        wizard.get_by_role("button", name="Generate coaching plan").click()
+        expect(desktop.get_by_role("heading", name="Weekly timeline")).to_be_visible()
+        desktop.screenshot(path=target / "desktop-plan.png", animations="disabled")
+    finally:
+        desktop.close()
+
+
 def test_dark_palette_contrast():
     text = CSS.read_text(encoding="utf-8")
     tokens = dict(re.findall(r"--cb-([\w-]+):\s*(#[0-9a-fA-F]{6})\b", text))
@@ -123,6 +149,7 @@ def test_mobile_wizard_and_tab_accessibility(tmp_path):
         wizard.get_by_role("button", name="Generate coaching plan").click()
         expect(page.get_by_role("heading", name="Weekly timeline")).to_be_visible()
         assert not (problems := page.evaluate(OVERFLOW)), problems
+        _capture_evidence(browser, url, page)
 
         for tab_name, heading in (
             ("Check-ins", "Daily check-ins"), ("Match prep", "Hydration planner"),
