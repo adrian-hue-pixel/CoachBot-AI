@@ -72,3 +72,31 @@ def test_scipy_wilcoxon_with_ten_paired_profiles():
     statistic, pvalue, notice = wilcoxon_result(np.arange(1, 11, dtype=float))
     assert (statistic, notice) == (0.0, "")
     assert pvalue == pytest.approx(2 / (2 ** 10))
+
+
+def test_mde_uses_paired_sample_sd_and_sample_size():
+    from lab_stats import minimum_detectable_difference
+
+    differences = [-1, -0.5, 0, 0.5, 1]
+    small_sd, small_mde, method = minimum_detectable_difference(differences)
+    assert small_sd == pytest.approx((2.5 / 4) ** 0.5)
+    assert small_mde > 0 and method in ("Paired t approximation", "Normal approximation")
+    # Repeating every value preserves equal group variance up to the sample correction.
+    _, large_mde, _ = minimum_detectable_difference(differences * 4)
+    assert large_mde < small_mde
+    doubled_sd, doubled_mde, _ = minimum_detectable_difference([d * 2 for d in differences])
+    assert doubled_sd == pytest.approx(2 * small_sd)
+    assert doubled_mde == pytest.approx(2 * small_mde)
+    assert minimum_detectable_difference([0, 1])[1] > 0
+    assert minimum_detectable_difference([2])[1] is None
+    assert minimum_detectable_difference([2, 2])[1] is None
+
+
+def test_mde_has_a_labelled_normal_approximation_when_scipy_is_unavailable(monkeypatch):
+    import sys
+    from lab_stats import minimum_detectable_difference
+
+    monkeypatch.setitem(sys.modules, "scipy.optimize", None)
+    sd, mde, method = minimum_detectable_difference([-1, 0, 1, 2])
+    assert method == "Normal approximation"
+    assert mde == pytest.approx(2.801585218 * sd / 2)

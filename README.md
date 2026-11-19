@@ -133,6 +133,15 @@ python evaluate.py --temperature-check
 
 The full run attempts 43 calls. It includes 30 training comparisons, three allergy-focused nutrition comparisons and ten repeated calls for one injury fixture. It logs failures and stops on credential, model access or quota errors. Reviewers receive numbered response files and a scoring CSV. Keep the condition log separate until scoring is complete.
 
+Use the reproducibility wrapper for new runs. Replace `MODEL_A` and `MODEL_B` with two distinct Gemini identifiers your API key can access.
+
+```sh
+python run_evaluation.py --temperature-check
+python run_evaluation.py --model MODEL_A --model MODEL_B --temperature-check
+```
+
+The wrapper invokes the original evaluator with the same flags for each model and saves one directory per run. Each `run_manifest.json` records the requested model ID, UTC start time, Python and package versions, Git commit and working-tree status when available, evaluator SHA-256, exact prompt hashes by response ID, planned and recorded condition counts, and the shuffle and analysis bootstrap seeds. The Gemini request seed is recorded as unset, so identical settings do not imply identical responses. Keep the manifest and conditions separate from the numbered packets until scoring is complete. The raw evaluator remains available for older workflows.
+
 | Version | Change | Comparison temperature | Live result |
 | --- | --- | --- | --- |
 | V1 | Basic one-line request with the same profile | 0.3 | Pending |
@@ -208,12 +217,16 @@ Accessibility references · [Focus order](https://www.w3.org/WAI/WCAG22/Understa
 
 ## Prompt Lab workflow
 
-1. Run `evaluate.py` with the existing command and keep each run in `evaluation_runs/`. Give each human rater only the numbered review packets and an independent copy of the rubric CSV. Keep `conditions.jsonl` separate until scoring is finished.
+1. Run `run_evaluation.py` or the original `evaluate.py` and keep each run in `evaluation_runs/`. Give each human rater only the numbered review packets and an independent copy of the rubric CSV. Keep `conditions.jsonl` and `run_manifest.json` separate until scoring is finished.
 2. Save the primary sheet as `scores.csv`. Enter a number for safety and the contraindicated-action count and use `N/A` for other ratings that do not apply. Leave a cell blank while scoring is pending. For a second rater, save `scores_rater2.csv` with the same columns and only the rows assigned to that rater.
 3. Open **Prompt Lab**, select the run, and confirm that blind scoring is complete. The confirmation applies to the current versions of the score sheets and manifest. The tab displays aggregates and prompt diffs without showing raw model responses.
 4. Optionally run `python judge.py evaluation_runs/RUN_TIMESTAMP` after the blind human scores are complete. It uses `GEMINI_API_KEY` and supports a `GEMINI_JUDGE_MODEL` override. The CLI submits the fictional packets to Gemini and writes a separate `scores_judge.csv` for comparison. The judge is secondary evidence, not ground truth.
 
 The planned V1/V2/V3 comparison uses ten paired fictional profiles. The lab reports actual paired counts, NumPy bootstrap confidence intervals, mean differences, paired rank-biserial effects and, when SciPy is available, two-sided Wilcoxon results with Holm-adjusted p-values. The temperature pilot reports Jaccard overlap and sample score SD within each temperature. An optional second score sheet adds quadratic-weighted Cohen’s kappa.
+
+**Study planning** estimates the minimum detectable difference using the observed sample SD of paired V3 − V1 scores, the available pair count, 80% target power and two-sided α = 0.05 per criterion. It uses a paired t calculation and labels the normal approximation if the SciPy calculation is unavailable. Small fictional samples make the SD unstable. The estimate is approximate and separate from the Wilcoxon test and Holm correction. [Paired t-test power method](https://www.statisticalhelp.org/help/sample_size/paired_t_test.htm)
+
+**Compare two models** shows two independently unblinded runs side by side when their recorded designs and prompt hashes match. Each pane uses the scores and available pairs from its own model. The Lab keeps the runs separate and performs no between-model significance test.
 
 The **V3 + linter** arm checks stored responses offline and reports flags separately. The benchmark table reports the regression and synthetic held-out sets separately. Live safety outcomes are shown for the current session when available. Demo verdicts are excluded from those totals.
 
@@ -300,6 +313,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Position tags and teacher review handoff | [PE teacher review protocol](#pe-teacher-review-protocol) | Position ordering and CSV tools tested. Teacher review pending. |
 | Layered safety and specificity comparison | [Layered-defence ablation](#layered-defence-ablation) | Offline replay and blinded reporting ready. Live Gemini measurements and human scores pending. |
 | Local policy regression checks | [Offline red-team suite](#offline-red-team-suite) | Development and checksum-pinned held-out cases with separate Wilson intervals. |
+| Reproducibility and study planning | [Evaluation wrapper](run_evaluation.py) and [Prompt Lab workflow](#prompt-lab-workflow) | Per-model manifests, approximate power analysis and independent side-by-side views. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |

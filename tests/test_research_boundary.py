@@ -35,7 +35,7 @@ def test_public_app_never_imports_offline_runners():
                     target = node.args[0]
                     if function in {"__import__", "import_module", "run_module", "run_path"} and isinstance(target, ast.Constant):
                         modules.append(str(target.value).removesuffix(".py").replace("/", "."))
-                if any({"evaluate", "ablate", "judge", "redteam"}.intersection(name.split(".")) for name in modules):
+                if any({"evaluate", "run_evaluation", "ablate", "judge", "redteam"}.intersection(name.split(".")) for name in modules):
                     violations.append(f"{source.relative_to(ROOT)}:{node.lineno}")
     assert not violations
 

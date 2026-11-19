@@ -12,8 +12,8 @@ import streamlit as st
 
 from ablation_data import available_ablation_runs, load_ablation_run, summarize_ablation
 from lab_data import (CONTRAINDICATED, CRITERIA, EXPERIMENTS, RATINGS, VERSIONS,
-                      available_runs, load_run, read_packets, read_scores)
-from lab_stats import paired_summary, prompt_groups, rater_summary, temperature_summary
+                      available_runs, comparable_models, load_run, read_packets, read_scores)
+from lab_stats import paired_summary, power_summary, prompt_groups, rater_summary, temperature_summary
 from lint_validation import HELD_OUT_SHA256, REGRESSION_CASES, benchmark_summary, held_out_cases
 from redteam_data import load_redteam_report
 from safety import lint_output
@@ -107,6 +107,59 @@ def _paired_statistics(rows):
     st.caption("Bootstrap intervals use 5,000 paired resamples of the mean difference. Signed-rank tests are two-sided. "
                "Intervals are per criterion. Holm correction applies to p-values across all six planned outcomes. Positive effects favor higher ratings, "
                "while positive contraindication counts indicate more contraindicated actions. Small samples limit inference.")
+
+
+def _power_planning(rows):
+    st.markdown("**Approximate power analysis**")
+    _table([{
+        "Criterion": CRITERIA[row["criterion"]], "Paired n": row["n"],
+        "Observed paired SD": _rounded(row["sd"]), "Minimum detectable difference": _rounded(row["mde"]),
+        "Method": row["method"],
+    } for row in power_summary(rows)])
+    st.caption("Planning only. Estimates use the observed SD of V3 − V1 paired differences at the available sample size, "
+               "80% target power and two-sided α = 0.05 per criterion. They are paired t approximations, with a normal "
+               "approximation if the SciPy calculation is unavailable. They do not estimate Wilcoxon power or adjust α across criteria.")
+
+
+def _compare_models(first, runs):
+    with st.expander("Compare two models"):
+        choices = [path for path in runs if path != first.path]
+        if not choices:
+            st.info("Add a second run using a different model and the same evaluation settings.")
+            return
+        path = st.selectbox("Second evaluation run", choices, index=None, format_func=lambda value: value.name,
+                            key="cb_lab_second_run")
+        if path is None:
+            return
+        try:
+            second = load_run(path)
+        except (OSError, ValueError, TypeError):
+            st.warning("The second run could not be read.")
+            return
+        if not second.ready:
+            st.info("Finish blind scoring for the second run before comparing models.")
+            return
+        if st.session_state.get("cb_lab_second_unblinded") != second.fingerprint:
+            if not st.button("Confirm blind scoring and unblind the second run", key="cb_lab_unblind_second"):
+                return
+            st.session_state.cb_lab_second_unblinded = second.fingerprint
+        if not comparable_models(first, second):
+            st.warning("Choose two distinct single-model runs with matching recorded conditions and prompt text.")
+            return
+        groups = [prompt_groups(run.observations()) for run in (first, second)]
+        modules = sorted({module for _, module in groups[0]} & {module for _, module in groups[1]})
+        if not modules:
+            st.info("No shared module has scored prompt-comparison responses.")
+            return
+        module = st.selectbox("Matched module", modules, key="cb_lab_compare_module")
+        st.caption("Each model's V3 − V1 estimates use its own scored pairs. The two models are displayed separately, "
+                   "with no pooled estimate or between-model significance test.")
+        for pane, run, group in zip(st.columns(2), (first, second), groups, strict=True):
+            with pane:
+                st.subheader(run.model_id)
+                st.caption(f"Run {run.path.name} · {run.succeeded} successful outputs.")
+                _paired_statistics(group[(run.model_id, module)])
+                _power_planning(group[(run.model_id, module)])
 
 
 def _highlight(previous, updated):
@@ -354,6 +407,8 @@ def render_lab(reduce_motion):
             rows = groups[group]
             _prompt_charts(rows, reduce_motion)
             _paired_statistics(rows)
+            with st.expander("Study planning"):
+                _power_planning(rows)
             _prompt_diff(rows)
         st.subheader("V3 + linter (offline)")
         st.caption("The linter checks the stored V3 responses for measurement only. Raw V1/V2/V3 scores stay separate.")
@@ -364,3 +419,4 @@ def render_lab(reduce_motion):
             st.info("This run has no successful V3 responses.")
         _temperature(observations, packets)
         _agreement(run)
+        _compare_models(run, runs)

@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 
 from coach import FEATURES, Profile
+from evaluation_manifest import condition_design, parse_run_manifest
 
 RATINGS = {
     "safety_1_to_5": "Safety",
@@ -39,6 +40,7 @@ class StudyRun:
     human: ScoreSheet
     rater2: ScoreSheet | None
     fingerprint: str
+    manifest: dict | None = None
 
     @property
     def succeeded(self):
@@ -48,6 +50,11 @@ class StudyRun:
     def ready(self):
         return bool(self.human.complete and not self.human.pending
                     and (self.rater2 is None or (self.rater2.complete and not self.rater2.pending)))
+
+    @property
+    def model_id(self):
+        models = {row["model"] for row in self.conditions.values()}
+        return next(iter(models)) if len(models) == 1 else None
 
     def observations(self):
         if not self.ready:
@@ -98,7 +105,7 @@ def read_scores(data, eligible, *, require_all):
     return ScoreSheet(complete, len(expected.difference(complete)))
 
 
-def _conditions(data):
+def read_conditions(data):
     conditions, design_keys = {}, set()
     for line in data.decode("utf-8-sig").splitlines():
         if not line.strip():
@@ -128,15 +135,24 @@ def _conditions(data):
 def load_run(path):
     path = Path(path)
     meta = (path / "conditions.jsonl").read_bytes()
-    conditions = _conditions(meta)
+    conditions = read_conditions(meta)
+    manifest_path = path / "run_manifest.json"
+    manifest_bytes = manifest_path.read_bytes() if manifest_path.is_file() else None
+    manifest = parse_run_manifest(manifest_bytes, conditions) if manifest_bytes is not None else None
     eligible = {key for key, value in conditions.items() if value["status"] == "ok"}
     scores = (path / "scores.csv").read_bytes()
     optional = path / "scores_rater2.csv"
     scores2 = optional.read_bytes() if optional.is_file() else None
     human = read_scores(scores, eligible, require_all=True)
     rater2 = read_scores(scores2, eligible, require_all=False) if scores2 is not None else None
-    fingerprint = sha256(repr((meta, scores, scores2)).encode()).hexdigest()
-    return StudyRun(path, conditions, human, rater2, fingerprint)
+    fingerprint = sha256(repr((meta, scores, scores2, manifest_bytes)).encode()).hexdigest()
+    return StudyRun(path, conditions, human, rater2, fingerprint, manifest)
+
+
+def comparable_models(first, second):
+    return bool(first.ready and second.ready and first.model_id and second.model_id
+                and first.model_id != second.model_id
+                and condition_design(first.conditions) == condition_design(second.conditions))
 
 
 def _packet(path, module):

@@ -2,7 +2,9 @@
 
 from collections import defaultdict
 from itertools import combinations
+from math import sqrt
 import re
+from statistics import NormalDist
 import unicodedata
 
 import numpy as np
@@ -11,6 +13,8 @@ from lab_data import CRITERIA, RATINGS, TEMPERATURES
 
 BOOTSTRAP_SAMPLES = 5000
 BOOTSTRAP_SEED = 103
+PLANNING_ALPHA = 0.05
+PLANNING_POWER = 0.8
 
 
 def prompt_groups(observations):
@@ -93,6 +97,44 @@ def paired_summary(rows):
     adjusted = holm_adjust({row["criterion"]: row["p"] for row in output})
     for row in output:
         row["holm_p"] = adjusted[row["criterion"]]
+    return output
+
+
+def minimum_detectable_difference(differences):
+    """Estimate a two-sided paired-test MDE in the units of the observed differences."""
+    n = len(differences)
+    if n < 2:
+        return None, None, "Insufficient pairs"
+    sd = float(np.std(differences, ddof=1))
+    if not sd or not np.isfinite(sd):
+        return sd, None, "Observed SD cannot support planning"
+    try:
+        from scipy.optimize import brentq
+        from scipy.stats import nct, t
+
+        df = n - 1
+        critical = t.ppf(1 - PLANNING_ALPHA / 2, df)
+
+        def power_gap(noncentrality):
+            # The opposite tail is bounded by Φ(−noncentrality), under 1.3e−12 at 7.
+            # Skip its numerical CDF there because some SciPy builds return NaN in this tail.
+            lower = nct.cdf(-critical, df, noncentrality) if noncentrality < 7 else 0.0
+            return lower + nct.sf(critical, df, noncentrality) - PLANNING_POWER
+
+        threshold = brentq(power_gap, 0, 4 * critical + 10)
+        return sd, float(threshold * sd / sqrt(n)), "Paired t approximation"
+    except (ImportError, ArithmeticError, RuntimeError, ValueError):
+        normal = NormalDist()
+        threshold = normal.inv_cdf(1 - PLANNING_ALPHA / 2) + normal.inv_cdf(PLANNING_POWER)
+        return sd, threshold * sd / sqrt(n), "Normal approximation"
+
+
+def power_summary(rows):
+    output = []
+    for criterion in CRITERIA:
+        differences = paired_differences(rows, criterion)
+        sd, mde, method = minimum_detectable_difference(differences)
+        output.append({"criterion": criterion, "n": len(differences), "sd": sd, "mde": mde, "method": method})
     return output
 
 

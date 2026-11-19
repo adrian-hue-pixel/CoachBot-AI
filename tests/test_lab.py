@@ -118,3 +118,47 @@ def test_prompt_lab_shows_aggregate_offline_policy_results(monkeypatch, tmp_path
     assert table["Mismatches"].tolist() == [row["Mismatches"] for row in expected]
     assert any("Authored synthetic policy cases" in caption.value for caption in app.caption)
     assert "Can I share my birth date" not in str(app)
+
+
+def test_two_models_stay_sealed_independently_and_display_separate_results(run_fixture, monkeypatch):
+    from shutil import copytree
+
+    path, scores = run_fixture
+    other = copytree(path, path.with_name("20261118T093000000000Z"))
+    manifest = other / "conditions.jsonl"
+    rows = [json.loads(line) for line in manifest.read_text().splitlines()]
+    manifest.write_text("\n".join(json.dumps({**row, "model": "second-model"}) for row in rows))
+    second_scores = {id_: {**rating, "safety_1_to_5": 3} for id_, rating in scores.items()}
+    write_scores(other / "scores.csv", {**second_scores, "R001": {}})
+    monkeypatch.setattr(lab, "RUNS_ROOT", path.parent)
+    app = AppTest.from_string("from lab import render_lab\nrender_lab(True)").run()
+    next(button for button in app.button if "unblind" in button.label).click().run()
+    next(item for item in app.selectbox if item.label == "Second evaluation run").select(other).run()
+    assert not app.exception
+    assert any("Finish blind scoring for the second run" in item.value for item in app.info)
+    assert all(item.value != "second-model" for item in app.subheader)
+
+    write_scores(other / "scores.csv", second_scores)
+    app.run()
+    assert all(item.value != "second-model" for item in app.subheader)
+    next(button for button in app.button if "unblind the second run" in button.label).click().run()
+    assert not app.exception
+    assert {"test-model", "second-model"} <= {item.value for item in app.subheader}
+    means = [item.value.set_index("Criterion").loc["Safety", "Mean difference"] for item in app.dataframe
+             if "Mean difference" in item.value and "Paired n" in item.value]
+    assert len(means) == 3 and means[0] == means[1] and means[-1] == 0
+    assert len([item for item in app.dataframe if "Minimum detectable difference" in item.value]) == 3
+
+
+def test_model_comparison_rejects_same_model_and_changed_prompt(run_fixture):
+    from dataclasses import replace
+    from lab_data import comparable_models, load_run
+
+    path, _ = run_fixture
+    first = load_run(path)
+    assert not comparable_models(first, first)
+    other_conditions = {id_: {**row, "model": "second-model"} for id_, row in first.conditions.items()}
+    second = replace(first, conditions=other_conditions)
+    assert comparable_models(first, second)
+    other_conditions["R001"]["prompt"] += "\nA different prompt."
+    assert not comparable_models(first, second)
