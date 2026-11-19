@@ -33,7 +33,7 @@ def gemini_settings():
     return key, model
 
 
-def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
+def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT, verify=False):
     status = st.status("Preparing your plan…", expanded=True)
     status.write("Reading profile")
     rule = public_gate(profile, feature, entries)
@@ -51,7 +51,7 @@ def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT
         render_skeleton()
 
     try:
-        verdict, result, evaluated = run_plan(profile, feature, locale, entries, key, model, mode=mode)
+        verdict, result, evaluated = run_plan(profile, feature, locale, entries, key, model, mode=mode, verify=verify)
     except Cooldown:
         status.update(label="Request cooldown", state="complete", expanded=False)
         return "info", COOLDOWN_MESSAGE
@@ -61,8 +61,6 @@ def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT
         return "error", GENERATION_ERRORS.get(code, "CoachBot could not return a complete plan. Please try again.")
     else:
         if evaluated:
-            if key and verdict != "passed":
-                status.write("Requested a second draft")
             status.write(f"Safety check · {VERDICTS[verdict]}")
         label = "Plan ready to review" if evaluated else "Saved plan ready"
         if mode != FREE_TEXT and verdict == "fallback":
@@ -124,7 +122,10 @@ def main():
                     st.warning("Exercise bank unavailable. Constrained plans are paused.")
                 st.caption(f"Plan mode · {mode}")
             if submitted is not None:
-                st.session_state.cb_outcome = submit_profile(submitted, feature, locale, entries, key, model, mode=mode)
+                st.session_state.cb_outcome = submit_profile(
+                    submitted, feature, locale, entries, key, model, mode=mode,
+                    verify=st.session_state[DRAFT]["verify_plan"],
+                )
             show_outcome(st.session_state.get("cb_outcome"), feature, locale, not key,
                          submitted is not None, reduce_motion)
     profile = profile_from_draft()

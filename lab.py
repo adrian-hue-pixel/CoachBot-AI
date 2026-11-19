@@ -10,6 +10,7 @@ from statistics import mean
 import plotly.graph_objects as go
 import streamlit as st
 
+from ablation_data import available_ablation_runs, load_ablation_run, summarize_ablation
 from lab_data import (CONTRAINDICATED, CRITERIA, EXPERIMENTS, RATINGS, VERSIONS,
                       available_runs, load_run, read_packets, read_scores)
 from lab_stats import paired_summary, prompt_groups, rater_summary, temperature_summary
@@ -17,6 +18,7 @@ from lint_validation import HELD_OUT_SHA256, REGRESSION_CASES, benchmark_summary
 from safety import lint_output
 
 RUNS_ROOT = Path(__file__).with_name("evaluation_runs")
+ABLATION_ROOT = Path(__file__).with_name("ablation_runs")
 COLORS = ("#83B9FE", "#F5B942", "#57D69A")
 
 
@@ -229,11 +231,59 @@ def _linter_benchmarks():
         st.caption(f"Held-out SHA-256 · {HELD_OUT_SHA256}")
 
 
+def _ablation_table(rows):
+    return [{"Arm": row["arm"], "Measure": row["metric"].replace("_", " "), "Evidence": row["source"],
+             "n": row["n"], "Mean or rate": _rounded(row["mean"], 6),
+             "Bootstrap 95% CI": " to ".join(f"{bound:.6g}" for bound in row["ci"]) if row["ci"] else "Unavailable"}
+            for row in rows]
+
+
+def _ablation():
+    with st.expander("Layered-defence ablation"):
+        runs = available_ablation_runs(ABLATION_ROOT)
+        if not runs:
+            st.info("No ablation run found. Run the fictional study and complete its blind score sheet.")
+            return
+        path = st.selectbox("Ablation run", runs, format_func=lambda value: value.name, key="cb_ablation_run")
+        try:
+            run = load_ablation_run(path)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+            st.warning("The ablation run or its blind score sheet could not be read.")
+            return
+        st.caption(f"Blind scoring · {len(run.scores)} of {len(run.conditions)} complete.")
+        if not run.ready:
+            st.info("Give raters only the blind packets and score sheet. Use N/A for unavailable labels before unblinding.")
+            return
+        if st.session_state.get("cb_ablation_unblinded") != run.fingerprint:
+            if not st.button("Confirm ablation scoring is complete and unblind", key="cb_ablation_unblind"):
+                return
+            st.session_state.cb_ablation_unblinded = run.fingerprint
+        st.caption(f"n={run.fixture_count} fictional profiles per arm. Intervals resample profiles within each arm.")
+        if run.source == "replay":
+            st.warning("Scripted offline replay. These results exercise the study workflow. Gemini latency, usage and cost were not measured.")
+        else:
+            st.caption(f"Model · {run.model}. Latency excludes the cooldown. USD estimates use the rates supplied for the run.")
+        outcomes, violations = summarize_ablation(run)
+        st.markdown("**Safety and positional specificity**")
+        metrics = ("Any violation", "Positional specificity (1–5)", "Role named", "Fallback rate")
+        _table(_ablation_table(row for row in outcomes if row["metric"] in metrics))
+        st.caption("Rates range from 0 to 1. Human labels and proxies use separate denominators. "
+                   "Literal role mentions alone do not measure useful role advice. See fallback alongside specificity.")
+        st.markdown("**Violation rates by category**")
+        _table(_ablation_table(violations))
+        st.markdown("**Latency, token use and pipeline outcomes**")
+        _table(_ablation_table(row for row in outcomes if row["metric"] not in metrics))
+        st.caption("The constrained arm includes the pre-call profile gates. Raw and layered free-text arms bypass them on fictional inputs. "
+                   "Packet style may suggest an arm. The linter can miss unfamiliar phrasings, and rates from the same regex policy favor that policy. "
+                   "Small samples and one module limit comparisons. The Gemini verifier may share the generator’s biases.")
+
+
 def render_lab(reduce_motion):
     with st.container(key="cb_lab"):
         st.subheader("Prompt Lab")
         _limits()
         _linter_benchmarks()
+        _ablation()
         live = st.session_state.get("cb_safety_outcomes")
         if live:
             with st.expander("Live safety checks this session"):

@@ -4,8 +4,11 @@ import sys
 
 from streamlit.testing.v1 import AppTest
 
+import ablate
+from exercise_bank import load_bank
 import lab
 from lab_data import load_run, read_packets
+from test_ablation import score_run
 from test_lab_data import run_fixture, score, write_scores
 
 
@@ -74,3 +77,28 @@ def test_app_exposes_prompt_lab_with_no_configured_key_or_runs(monkeypatch, tmp_
     assert report.loc["regression", "n"] == 67
     assert report.loc["held-out", "n"] == 24
     assert "Recall Wilson 95%" in report.columns
+
+
+def test_prompt_lab_releases_only_ablation_aggregates_after_blind_confirmation(monkeypatch, tmp_path):
+    path = ablate.write_run(tmp_path, 2, load_bank())
+    monkeypatch.setattr(lab, "ABLATION_ROOT", tmp_path)
+    monkeypatch.setattr(lab, "RUNS_ROOT", tmp_path / "no-original-run")
+    app = AppTest.from_string("from lab import render_lab\nrender_lab(True)").run()
+    assert not app.exception and len(app.dataframe) == 1 and not app.button
+    assert any("only the blind packets" in item.value for item in app.info)
+
+    score_run(path)
+    app.run()
+    assert len(app.dataframe) == 1 and len(app.button) == 1
+    app.button[0].click().run()
+    assert not app.exception and len(app.dataframe) == 4
+    assert any("Scripted offline replay" in item.value for item in app.warning)
+    summary = app.dataframe[1].value
+    assert {"Human", "Linter proxy", "Literal-match proxy", "Pipeline"} == set(summary["Evidence"])
+    assert "Positional specificity (1–5)" in set(summary["Measure"])
+    assert "Bootstrap 95% CI" in summary
+    assert "Use a jumping drill during practice." not in str(app)
+
+    score_run(path, labels=False)
+    app.run()
+    assert len(app.dataframe) == 1 and len(app.button) == 1

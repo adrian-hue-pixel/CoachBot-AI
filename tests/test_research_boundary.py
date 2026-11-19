@@ -13,7 +13,7 @@ import evaluate
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_public_app_never_imports_evaluator():
+def test_public_app_never_imports_offline_runners():
     violations = []
     for folder, subfolders, filenames in os.walk(ROOT):
         subfolders[:] = [
@@ -35,7 +35,7 @@ def test_public_app_never_imports_evaluator():
                     target = node.args[0]
                     if function in {"__import__", "import_module", "run_module", "run_path"} and isinstance(target, ast.Constant):
                         modules.append(str(target.value).removesuffix(".py").replace("/", "."))
-                if any("evaluate" in name.split(".") for name in modules):
+                if any({"evaluate", "ablate", "judge"}.intersection(name.split(".")) for name in modules):
                     violations.append(f"{source.relative_to(ROOT)}:{node.lineno}")
     assert not violations
 

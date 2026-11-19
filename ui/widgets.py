@@ -25,6 +25,7 @@ DEFAULTS = {
     "allergies": "",
     "language": "English",
     "plan_mode": CONSTRAINED,
+    "verify_plan": False,
 }
 
 
@@ -35,6 +36,7 @@ def init_wizard():
         st.session_state.cb_previous_step = 0
     draft = st.session_state[DRAFT]
     draft.setdefault("plan_mode", CONSTRAINED)
+    draft.setdefault("verify_plan", False)
     return draft["sport"], draft["position"], draft["feature"]
 
 
@@ -99,6 +101,8 @@ def profile_wizard(demo):
                 st.caption("Demo data stays in this session. Leave out names and medical records.")
             elif plan_mode(st.session_state[DRAFT]["feature"], st.session_state[DRAFT]["plan_mode"]) == CONSTRAINED:
                 st.caption("Gemini receives the sport, position, module and eligible activity menu.")
+                _field(st.checkbox, "verify_plan", "Run an extra Gemini safety review",
+                       help="Sends only the resolved catalog activities and cues. This adds a second request.")
             else:
                 st.caption("Submitted profile fields go to Gemini. Leave out names and medical records.")
 
@@ -114,7 +118,8 @@ def profile_wizard(demo):
 
 
 def profile_from_draft():
-    values = {key: value for key, value in st.session_state[DRAFT].items() if key not in ("feature", "language", "plan_mode")}
+    values = {key: value for key, value in st.session_state[DRAFT].items()
+              if key not in ("feature", "language", "plan_mode", "verify_plan")}
     values["goal"] = values["goal"].strip() or "Build sport fundamentals"
     values["restrictions"] = values["restrictions"].strip()
     if st.session_state[DRAFT]["feature"] == "No-equipment training":

@@ -72,7 +72,7 @@ def prompt(profile, feature, version):
         message += f"\nRules:\n{SAFETY}"
     return message
 
-def generate(api_key, model, message, temperature, structured=True, *, response_schema=None):
+def generate(api_key, model, message, temperature, structured=True, *, response_schema=None, on_usage=None):
     from google import genai
     from google.genai import types
 
@@ -111,6 +111,8 @@ def generate(api_key, model, message, temperature, structured=True, *, response_
         response = client.models.generate_content(
             model=model, contents=message, config=types.GenerateContentConfig(**options)
         )
+    if on_usage is not None:
+        on_usage(response.usage_metadata)
     if not response.text:
         raise ValueError("Gemini returned an empty response.")
     return json.loads(response.text) if structured else response.text

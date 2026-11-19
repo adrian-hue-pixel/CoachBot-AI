@@ -3,7 +3,7 @@
 from dataclasses import asdict
 from hashlib import sha256
 import json
-from time import monotonic
+from time import monotonic, sleep
 
 import streamlit as st
 
@@ -15,6 +15,7 @@ from exercise_bank import (CONSTRAINED, FREE_TEXT, constrained_fallback, demo_dr
 from i18n import FALLBACK_TEXT, MODEL_LANGUAGES
 from safety import blocking_rule, lint_output
 from ui.components import validate_plan
+from verifier import verify_text
 
 
 class Cooldown(Exception):
@@ -68,15 +69,16 @@ def _cached_plan(fingerprint, _build):
     return result
 
 
-def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
+def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT, verify=False):
     if public_gate(profile, feature, entries):
         raise ValueError("Profile is paused by the pre-call gates.")
     mode = plan_mode(feature, mode)
     cap = workload_cap(profile.intensity, entries) if feature in coach.PHYSICAL else None
     reduced = cap == "Light" and profile.intensity != "Easy"
     bank = load_bank() if mode == CONSTRAINED else None
+    verify = bool(bank and key and verify)
     data = [asdict(profile), feature, "V3", locale, cap, reduced, model, bool(key), mode,
-            bank.fingerprint if bank else None]
+            bank.fingerprint if bank else None, verify]
     eligible = eligible_exercises(bank, profile, feature, "Rest" if reduced else cap) if bank else None
     if bank and not eligible:
         return "fallback", constrained_fallback(locale), False
@@ -89,7 +91,11 @@ def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
             reserve_live_request()
         generated = True
         if bank:
-            return _run_constrained(profile, feature, locale, cap, key, model, bank, eligible)
+            verdict, plan = _run_constrained(profile, feature, locale, cap, key, model, bank, eligible)
+            if verify and verdict != "fallback":
+                if public_gate(profile, feature, entries) or not _verify_catalog_plan(key, model, plan):
+                    return "fallback", constrained_fallback(locale)
+            return verdict, plan
         message = coach.prompt(profile, feature, "V3")
         message += f"\nWrite reader-facing text in {MODEL_LANGUAGES[locale]}. Keep any load enum in English."
         if cap:
@@ -118,6 +124,19 @@ def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
     if generated and key:
         record_verdict(verdict)
     return verdict, plan, generated
+
+
+def _verify_catalog_plan(key, model, plan):
+    """Use only resolved catalog text and approved cues for the optional API call."""
+    rows = [{field: row[field] for field in ("action", "load", "why")} for row in plan["rows"]]
+    delay = 5 - (monotonic() - st.session_state.cb_last_gemini)
+    if delay > 0:
+        sleep(delay)
+    try:
+        reserve_live_request()
+        return verify_text(key, model, json.dumps(rows, ensure_ascii=False)).passed
+    except Exception:
+        return False
 
 
 def _run_constrained(profile, feature, locale, cap, key, model, bank, eligible):
