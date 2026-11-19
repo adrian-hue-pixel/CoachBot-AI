@@ -161,12 +161,13 @@ Ask a PE teacher to review a sample without seeing the conditions. Report mean a
 - [ ] In Streamlit Community Cloud, select the repository, branch and `app.py`, then choose **Python 3.12** in Advanced settings. Put `GEMINI_API_KEY` and an optional `GEMINI_MODEL` in Cloud secrets.
 - [ ] Verify demo and live generation on desktop and a 360px mobile viewport. Inspect keyboard focus, label announcements, summary streaming and Reduce motion.
 - [ ] If Community Cloud's uv installer rejects `--only-binary=:all:` in `requirements.txt`, remove that line. CI should still pass `--only-binary=:all:` via pip.
-- [ ] Add the public Streamlit URL, the evidence screenshots and the scored research results. Verify assessor access using the address in the brief.
+- [x] Publish the [Streamlit demo](https://coachbot-ai.streamlit.app/) and capture the desktop profile-to-plan flow.
+- [ ] Add the remaining evidence screenshots and scored research results. Verify assessor access using the address in the brief.
 - [ ] Submit the PDF with the repository link, student full name, candidate registration number, CRS **Artificial Intelligence**, course **Generative A.I.**, and school name.
 
 Community Cloud deployment settings are documented by [Streamlit](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
 
-**Project URLs** · [GitHub repository](https://github.com/adrian-hue-pixel/CoachBot-AI) · Public Streamlit URL pending.
+**Project URLs** · [GitHub repository](https://github.com/adrian-hue-pixel/CoachBot-AI) · [Live Streamlit demo](https://coachbot-ai.streamlit.app/).
 
 ## Demo mode and session safety
 
@@ -318,10 +319,14 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture the deployed app on desktop and mobile. |
-| Public Streamlit deployment | [Deploy and submit](#deploy-and-submit) | Add the live URL and evidence of desktop and mobile use. |
+| Public Streamlit deployment | [Live demo](https://coachbot-ai.streamlit.app/) and [desktop smoke test](#demo-screenshots-and-evidence) | Desktop demo generation verified. Mobile and live Gemini evidence pending. |
 | Submission PDF | [Deploy and submit](#deploy-and-submit) | Include the repository URL, student name, registration number, CRS, course and school. |
 
 ## Demo screenshots and evidence
+
+The deployed app generated a seven-day football plan in Demo mode for a fictional profile.
+
+![Deployed CoachBot AI showing the profile wizard, safety check and weekly timeline](docs/screenshots/deployed-demo-plan.jpg)
 
 The [GitHub Actions workflow](https://github.com/adrian-hue-pixel/CoachBot-AI/actions) saves real Chromium screenshots from its demo-mode browser test as the `coachbot-demo-screenshots` artifact when the test succeeds. The desktop viewport is 1,440px and the mobile viewport is 360px. These screenshots document the wizard and generated demo plan independently of live Gemini validation.
 
