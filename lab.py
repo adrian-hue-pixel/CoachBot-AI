@@ -232,7 +232,8 @@ def _linter_benchmarks():
 
 
 def _ablation_table(rows):
-    return [{"Arm": row["arm"], "Measure": row["metric"].replace("_", " "), "Evidence": row["source"],
+    return [{"Fixtures": row["cohort"], "Arm": row["arm"], "Measure": row["metric"].replace("_", " "),
+             "Evidence": row["source"],
              "n": row["n"], "Mean or rate": _rounded(row["mean"], 6),
              "Bootstrap 95% CI": " to ".join(f"{bound:.6g}" for bound in row["ci"]) if row["ci"] else "Unavailable"}
             for row in rows]
@@ -240,6 +241,7 @@ def _ablation_table(rows):
 
 def _ablation():
     with st.expander("Layered-defence ablation"):
+        st.caption("Exploratory study · One module and up to ten fictional fixtures.")
         runs = available_ablation_runs(ABLATION_ROOT)
         if not runs:
             st.info("No ablation run found. Run the fictional study and complete its blind score sheet.")
@@ -258,24 +260,35 @@ def _ablation():
             if not st.button("Confirm ablation scoring is complete and unblind", key="cb_ablation_unblind"):
                 return
             st.session_state.cb_ablation_unblinded = run.fingerprint
-        st.caption(f"n={run.fixture_count} fictional profiles per arm. Intervals resample profiles within each arm.")
+        paused = len(run.paused_fixtures)
+        st.caption(f"Gate-inclusive n={run.fixture_count} per arm. Matched n={run.fixture_count - paused} per arm, "
+                   f"excluding the same {paused} pre-call pauses from all arms. Intervals resample profiles within each arm.")
+        if run.schema == 1:
+            st.warning("Legacy run with the original packet layouts. Generate a new run for the uniform packet format.")
         if run.source == "replay":
             st.warning("Scripted offline replay. These results exercise the study workflow. Gemini latency, usage and cost were not measured.")
         else:
             st.caption(f"Model · {run.model}. Latency excludes the cooldown. USD estimates use the rates supplied for the run.")
-        outcomes, violations = summarize_ablation(run)
-        st.markdown("**Safety and positional specificity**")
-        metrics = ("Any violation", "Positional specificity (1–5)", "Role named", "Fallback rate")
-        _table(_ablation_table(row for row in outcomes if row["metric"] in metrics))
-        st.caption("Rates range from 0 to 1. Human labels and proxies use separate denominators. "
-                   "Literal role mentions alone do not measure useful role advice. See fallback alongside specificity.")
-        st.markdown("**Violation rates by category**")
-        _table(_ablation_table(violations))
+        results = []
+        for exclude, cohort in ((True, "Matched non-paused fixtures"), (False, "All fixtures (gate-inclusive)")):
+            outcomes, violations = summarize_ablation(run, exclude_paused=exclude)
+            results.extend({**row, "cohort": cohort} for row in (*outcomes, *violations))
+        st.markdown("**Human labels · Safety and positional specificity**")
+        human = [row for row in results if row["source"] == "Human"]
+        if not any(row["n"] for row in human):
+            st.info("No human labels were available for this run.")
+        _table(_ablation_table(human))
         st.markdown("**Latency, token use and pipeline outcomes**")
-        _table(_ablation_table(row for row in outcomes if row["metric"] not in metrics))
+        _table(_ablation_table(row for row in results if row["source"] in ("Measured", "Price estimate", "Pipeline")))
+        st.markdown("**Linter proxy · Circular by design**")
+        st.caption("The same linter helps produce some arms and rates their outputs here. These proxy rates are not independent safety evidence.")
+        _table(_ablation_table(row for row in results if row["source"] == "Linter proxy"))
+        st.markdown("**Literal role mentions · Text-match proxy**")
+        st.caption("A role mention alone does not measure useful role advice.")
+        _table(_ablation_table(row for row in results if row["source"] == "Literal-match proxy"))
         st.caption("The constrained arm includes the pre-call profile gates. Raw and layered free-text arms bypass them on fictional inputs. "
-                   "Packet style may suggest an arm. The linter can miss unfamiliar phrasings, and rates from the same regex policy favor that policy. "
-                   "Small samples and one module limit comparisons. The Gemini verifier may share the generator’s biases.")
+                   "Wording may still suggest an arm. Present fallback rates alongside specificity. "
+                   "The Gemini verifier may share the generator’s biases.")
 
 
 def render_lab(reduce_motion):

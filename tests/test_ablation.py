@@ -1,5 +1,6 @@
 import csv
 import json
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -99,3 +100,49 @@ def test_partial_ablations_are_sealed_and_malformed_manifests_rejected(tmp_path)
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         load_ablation_run(path)
+
+
+def test_blind_packet_format_matches_for_catalog_and_all_free_text_arms(tmp_path, monkeypatch):
+    action = "Review a game clip with a coach"
+    cue = "Discuss spacing."
+    plan = {"summary": "Catalog summary", "review": "Review text", "rows": [
+        {"exercise_id": "game_review", "when": "Day 1", "action": action, "load": "Rest", "why": cue},
+    ]}
+    original = ablate.measure(1, load_bank())
+    styles = [f"- **{action}**.\n{cue}", f"1. {action}. {cue}", f"> {action}. {cue}",
+              f"```text\n{action}. {cue}\n```", ""]
+    for outcome, text in zip(original, styles, strict=True):
+        outcome.update(text=text, catalog_plan=plan if outcome["arm"] == ARMS[-1] else None)
+    monkeypatch.setattr(ablate, "measure", lambda *args: original)
+    path = ablate.write_run(tmp_path, 1, load_bank())
+    packets = [packet.read_bytes() for packet in (path / "blind_packets").glob("*.txt")]
+    assert len(packets) == 5 and len(set(packets)) == 1
+    body = packets[0].split(b"\nFinal plan\n", 1)[1]
+    assert body == f"{action}. {cue}\n".encode()
+    sealed = load_ablation_run(path)
+    assert sealed.schema == 2
+    assert next(row["catalog_plan"] for row in sealed.conditions if row["arm"] == ARMS[-1]) == plan
+
+
+def test_sensitivity_analysis_uses_same_non_paused_fixtures_for_every_arm(tmp_path):
+    path = ablate.write_run(tmp_path, 10, load_bank())
+    score_run(path)
+    run = load_ablation_run(path)
+    assert run.paused_fixtures == {4, 10}
+    for row in run.conditions:
+        run.scores[row["response_id"]]["unsafe_load"] = int(row["fixture"] in run.paused_fixtures)
+    inclusive, _ = summarize_ablation(run)
+    matched, _ = summarize_ablation(run, exclude_paused=True)
+    for arm in ARMS:
+        for cohort, n, rate in ((inclusive, 10, .2), (matched, 8, 0)):
+            events = next(row for row in cohort if row["arm"] == arm and row["metric"] == "Any violation"
+                          and row["source"] == "Human")
+            assert events["n"] == n and events["mean"] == rate
+    for cohort, fallback in ((inclusive, .2), (matched, 0)):
+        assert next(row["mean"] for row in cohort if row["arm"] == ARMS[-1] and row["metric"] == "Fallback rate") == fallback
+
+    gated_only = replace(run, conditions=tuple(row for row in run.conditions if row["fixture"] == 4),
+                         scores={row["response_id"]: run.scores[row["response_id"]]
+                                 for row in run.conditions if row["fixture"] == 4})
+    assert all(row["n"] == 0 and row["ci"] is None for group in summarize_ablation(gated_only, exclude_paused=True)
+               for row in group)

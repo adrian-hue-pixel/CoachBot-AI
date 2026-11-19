@@ -30,10 +30,15 @@ class AblationRun:
     fingerprint: str
     conditions: tuple
     scores: dict
+    schema: int = 1
 
     @property
     def ready(self):
         return len(self.scores) == len(self.conditions)
+
+    @property
+    def paused_fixtures(self):
+        return frozenset(row["fixture"] for row in self.conditions if row["arm"] == ARMS[-1] and row["gated"])
 
 
 def available_ablation_runs(root):
@@ -78,7 +83,8 @@ def load_ablation_run(path):
     bank_hash, conditions = document["bank_sha256"], document["conditions"]
     valid_model = model is None if source == "replay" else (
         isinstance(model, str) and re.fullmatch(r"[A-Za-z0-9._/-]{1,100}", model))
-    if (document.get("schema") != 1 or source not in ("live", "replay") or not valid_model
+    schema = document.get("schema")
+    if (type(schema) is not int or schema not in (1, 2) or source not in ("live", "replay") or not valid_model
             or type(count) is not int or not 1 <= count <= 10
             or not isinstance(bank_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", bank_hash)
             or not isinstance(conditions, list) or len(conditions) != count * len(ARMS)):
@@ -88,20 +94,25 @@ def load_ablation_run(path):
         id_, arm, fixture = row["response_id"], row["arm"], row["fixture"]
         flags = row["proxy_flags"]
         design = (arm, fixture)
-        if (set(row) != METADATA or not isinstance(id_, str) or not AB_ID.fullmatch(id_) or id_ in ids
+        required = METADATA | ({"catalog_plan"} if schema == 2 else set())
+        expected_plan = arm == ARMS[-1] and not row["fallback"]
+        catalog_plan = row.get("catalog_plan")
+        valid_plan = isinstance(catalog_plan, dict) if expected_plan else catalog_plan is None
+        if (set(row) != required or not isinstance(id_, str) or not AB_ID.fullmatch(id_) or id_ in ids
                 or arm not in ARMS or type(fixture) is not int or not 1 <= fixture <= count or design in designs
                 or not isinstance(flags, list) or any(item not in LINTER_CATEGORIES for item in flags)
                 or any(type(row[field]) is not bool for field in FLAGS)
                 or (row["role_named"] is not None and type(row["role_named"]) is not bool)
                 or any(row[field] is not None and not _number(row[field]) for field in NUMBERS)
                 or (source == "replay" and any(row[field] is not None for field in NUMBERS))
-                or (row["gated"] and not row["fallback"])):
+                or (row["gated"] and (not row["fallback"] or arm != ARMS[-1]))
+                or (schema == 2 and not valid_plan)):
             raise ValueError("Invalid or duplicate ablation observation.")
         ids.add(id_)
         designs.add(design)
     scores = read_blind_scores(sheet, ids)
     fingerprint = sha256(meta_raw + b"\0" + sheet).hexdigest()
-    return AblationRun(source, model, count, bank_hash, fingerprint, tuple(conditions), scores)
+    return AblationRun(source, model, count, bank_hash, fingerprint, tuple(conditions), scores, schema)
 
 
 def _estimate(arm, metric, source, values):
@@ -109,12 +120,13 @@ def _estimate(arm, metric, source, values):
             "mean": mean(values) if values else None, "ci": bootstrap_ci(values)}
 
 
-def summarize_ablation(run):
+def summarize_ablation(run, *, exclude_paused=False):
     if not run.ready:
         raise ValueError("Complete the blind ablation sheet first.")
     outcomes, violations = [], []
+    paused = run.paused_fixtures if exclude_paused else frozenset()
     for arm in ARMS:
-        group = [row for row in run.conditions if row["arm"] == arm]
+        group = [row for row in run.conditions if row["arm"] == arm and row["fixture"] not in paused]
         ratings = [run.scores[row["response_id"]] for row in group]
         outcomes.extend([
             _estimate(arm, "Any violation", "Human",

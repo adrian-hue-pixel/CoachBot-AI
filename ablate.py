@@ -11,6 +11,7 @@ from pathlib import Path
 import random
 import re
 from tempfile import TemporaryDirectory
+from textwrap import fill
 from time import monotonic, sleep
 
 from ablation_data import ARMS, SCORE_COLUMNS
@@ -117,6 +118,16 @@ def _catalog_text(plan):
     return "\n".join(" · ".join((row["action"], row["load"], row["why"])) for row in plan["rows"])
 
 
+def blind_packet(profile, text, catalog_plan=None):
+    if catalog_plan is not None:
+        text = " ".join(f"{row['action'].rstrip('.!?')}. {row['why']}" for row in catalog_plan["rows"])
+    text = re.sub(r"(?m)^[ \t]*(?:(?:`{3,}|~{3,})[\w-]*|[-*_]{3,})[ \t]*$", "", text)
+    text = re.sub(r"(?m)^[ \t]*(?:>[ \t]*|(?:#{1,6}|[-+*•]|\d+[.)])[ \t]+)+", "", text)
+    text = re.sub(r"(`{1,3}|\*{1,3}|_{2,3})([^\n]+?)\1", r"\2", text)
+    body = fill(" ".join(text.split()), width=80, break_long_words=False, break_on_hyphens=False)
+    return f"Synthetic profile\n{json.dumps(asdict(profile), indent=2)}\n\nModule: {FEATURE}\n\nFinal plan\n{body}\n"
+
+
 def _free_draft(requests, trace, fixture, profile, version, *, retry=()):
     if requests is None:
         if not retry and ((version == "V1" and fixture in (3, 8)) or (version == "V3" and fixture == 8)):
@@ -152,11 +163,11 @@ def _constrained(requests, trace, profile, bank):
     rule = blocking_rule(profile, FEATURE, physical=coach.PHYSICAL, recovery=coach.RECOVERY)
     if rule:
         trace.latency_ms += 1_000 * (monotonic() - start)
-        return gate_copy("en", rule)[-1], True, True
+        return gate_copy("en", rule)[-1], True, True, None
     menu = eligible_exercises(bank, profile, FEATURE, "Light")
     trace.latency_ms += 1_000 * (monotonic() - start)
     if not menu:
-        return _fallback(), True, False
+        return _fallback(), True, False, None
     for retry in (False, True) if requests else (False,):
         if requests is None:
             draft = demo_draft(menu, FEATURE, "en")
@@ -173,17 +184,18 @@ def _constrained(requests, trace, profile, bank):
         plan, flags = resolve_draft(draft, bank, menu, profile, "en", "Light")
         trace.latency_ms += 1_000 * (monotonic() - start)
         if not flags:
-            return _catalog_text(plan), False, False
-    return _fallback(), True, False
+            return _catalog_text(plan), False, False, plan
+    return _fallback(), True, False, None
 
 
 def _outcome(arm, text, trace, requests, rates, profile, fixture, *, fallback=False, gated=False,
-             verifier_unavailable=False):
+             verifier_unavailable=False, catalog_plan=None):
     # Measure ultimate exposed output, including any substitute guidance.
     role = re.escape(normalized(profile.position))
     return {
         "arm": arm, "fixture": fixture, "text": text, "fallback": fallback, "gated": gated,
-        "verifier_unavailable": verifier_unavailable, "proxy_flags": list(_lint(text, profile)),
+        "verifier_unavailable": verifier_unavailable, "catalog_plan": catalog_plan,
+        "proxy_flags": list(_lint(catalog_plan if catalog_plan is not None else text, profile)),
         "role_named": bool(re.search(rf"(?<!\w){role}(?!\w)", normalized(text))) if not fallback else None,
         "latency_ms": trace.latency_ms if requests is not None else None,
         "input_tokens": trace.input_tokens if requests is not None else None,
@@ -228,9 +240,9 @@ def measure(limit, bank, requests=None, rates=None):
                                 fallback=verify_fallback, verifier_unavailable=unavailable))
 
         catalog_trace = Trace()
-        text, catalog_fallback, gated = _constrained(requests, catalog_trace, profile, bank)
+        text, catalog_fallback, gated, catalog_plan = _constrained(requests, catalog_trace, profile, bank)
         results.append(_outcome(ARMS[4], text, catalog_trace, requests, rates, profile, fixture,
-                                fallback=catalog_fallback, gated=gated))
+                                fallback=catalog_fallback, gated=gated, catalog_plan=catalog_plan))
     return results
 
 
@@ -240,7 +252,7 @@ def write_run(root, limit, bank, requests=None, rates=None):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     root.mkdir(parents=True, exist_ok=True)
     destination = root / stamp
-    manifest = {"schema": 1, "source": "live" if requests else "replay", "model": requests.model if requests else None,
+    manifest = {"schema": 2, "source": "live" if requests else "replay", "model": requests.model if requests else None,
                 "fixture_count": limit, "bank_sha256": bank.fingerprint, "temperature": TEMPERATURE,
                 "retry_temperature": 0.2, "module": FEATURE, "shuffle_seed": SHUFFLE_SEED,
                 "input_output_usd_per_million": rates, "conditions": []}
@@ -255,7 +267,7 @@ def write_run(root, limit, bank, requests=None, rates=None):
                 id_ = f"AB{index:03}"
                 text = outcome.pop("text")
                 profile = FIXTURES[outcome["fixture"] - 1]
-                packet = f"Synthetic profile\n{json.dumps(asdict(profile), indent=2)}\n\nModule: {FEATURE}\n\nFinal plan\n{text}\n"
+                packet = blind_packet(profile, text, outcome["catalog_plan"])
                 (staging / "blind_packets" / f"{id_}.txt").write_text(packet, encoding="utf-8")
                 writer.writerow({"response_id": id_})
                 manifest["conditions"].append({"response_id": id_, **outcome})

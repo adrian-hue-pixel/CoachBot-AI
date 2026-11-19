@@ -91,10 +91,13 @@ def test_prompt_lab_releases_only_ablation_aggregates_after_blind_confirmation(m
     app.run()
     assert len(app.dataframe) == 1 and len(app.button) == 1
     app.button[0].click().run()
-    assert not app.exception and len(app.dataframe) == 4
+    assert not app.exception and len(app.dataframe) == 5
     assert any("Scripted offline replay" in item.value for item in app.warning)
     summary = app.dataframe[1].value
-    assert {"Human", "Linter proxy", "Literal-match proxy", "Pipeline"} == set(summary["Evidence"])
+    assert {"Human"} == set(summary["Evidence"])
+    assert {"Matched non-paused fixtures", "All fixtures (gate-inclusive)"} == set(summary["Fixtures"])
+    assert {"Linter proxy"} == set(app.dataframe[3].value["Evidence"])
+    assert any("Circular by design" in item.value for item in app.markdown)
     assert "Positional specificity (1–5)" in set(summary["Measure"])
     assert "Bootstrap 95% CI" in summary
     assert "Use a jumping drill during practice." not in str(app)
