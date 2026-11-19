@@ -171,16 +171,18 @@ Trusted breathing and celebration markup runs inside `st.iframe`. Streamlit 1.61
 
 Constrained is the default for Full-body training, Warm-up and cooldown, Positional drills, No-equipment training and Weekly progress adaptation. Choose **Free-text V3** in the wizard to use the existing comparison mode. The other modules use V3.
 
-[The exercise bank](exercises.json) contains 48 general PE activities. The app first applies the existing profile and check-in gates. It then builds an eligible menu from sport, age, available equipment, named movement restrictions and the check-in workload cap. It uses rest-only choices when restrictions are unclear or the check-in rules call for rest. The age fields are conservative project eligibility settings.
+[The exercise bank](exercises.json) contains 48 general PE activities. The app first applies the existing profile and check-in gates. It then builds an eligible menu from sport, age, available equipment, named movement restrictions and the check-in workload cap. Standalone answers such as `none`, `n/a`, `இல்லை` and `कोई नहीं` count as empty. Unclear answers and check-ins that call for rest restrict the menu to rest choices. The age fields are conservative project eligibility settings.
+
+Each entry can list positions from its tagged sports. An empty position list means any position. Matching entries appear first in the eligible menu, with all movement, age, equipment and load constraints applied before any draft is displayed. Constrained mode trades expressiveness for safety by limiting plans to catalog activities and approved cues. The layered-defence ablation measures positional specificity alongside safety and fallback rates.
 
 Gemini receives the selected sport, position, module and eligible activity and cue menu. The athlete's free-text fields stay out of the Constrained request. The response contains exercise IDs and short cues from a fixed list. The app rejects unknown IDs, removes known entries that are currently ineligible, and checks each displayed cue with the linter. Activity names and loads come from the bank. The model cannot add activities, loads or instructions by returning extra fields. If no valid plan remains, the app gives static guidance without displaying any exercise. The activity names are in English. The short cues and plan framing follow the selected language.
 
 ### PE teacher review protocol
 
-1. Open `exercises.json` and review each record by its ID. Check the activity wording, sport, movement tags, load, minimum age and required equipment for a school PE setting.
-2. Check that all movements an activity requires are tagged using the project's existing taxonomy. Confirm that a Rest entry involves no prescribed movement.
-3. Correct unsuitable entries before marking them reviewed. Record the reviewer's agreed display name or role in `reviewer` and set `reviewed` to `true` only for each accepted entry. Reopen review after changing any activity or eligibility field.
-4. Commit the reviewed bank and rerun the bank and gate tests. The app shows the pending-review notice until every record has both fields. The supplied entries are awaiting teacher review.
+1. Export a blank sheet from the repository root with `python -m tools.export_review_sheet pe-review.csv`. The teacher checks each ID's wording, sports, position tags, movements, load, minimum age and equipment for school PE. Confirm the movement tags cover everything the activity involves and that Rest entries prescribe no movement.
+2. Mark `yes` or `x` in either `approve` or `reject`. Leave both blank if undecided and use `comment` for review notes. Keep the activity columns as exported and keep reviewer names and notes out of the athlete app.
+3. Apply the approvals with `python -m tools.apply_review pe-review.csv --reviewer "PE teacher"`. Use the teacher's agreed display name or role. The tool verifies that activity details match, updates only approved rows, lists rejected IDs and prints the updated bank SHA-256.
+4. Edit or remove rejected entries manually. Reset `reviewer` to `null` and `reviewed` to `false` after changing an approved entry, then export a fresh sheet. Commit the bank and rerun the tests. The app shows the review notice until every remaining entry has both an approval and a reviewer.
 
 ## Summary accessibility checks
 
@@ -254,6 +256,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Research findings and academic references | [Problem and research](#problem-and-research) and [linter benchmarks](#linter-benchmarks) | Research basis and synthetic metrics documented. |
 | Model, tuning techniques and at least ten prompts | [Modules and generation settings](#modules-and-generation-settings) | Eleven modules and V1/V2/V3 documented. |
 | Constrained safety design and exercise review | [Constrained plan mode](#constrained-plan-mode) and [exercise bank](exercises.json) | Bank and deterministic filter tests ready. PE teacher review pending. |
+| Position tags and teacher review handoff | [PE teacher review protocol](#pe-teacher-review-protocol) | Position ordering and CSV tools tested. Teacher review pending. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |

@@ -7,7 +7,7 @@ import pytest
 
 from checkins import LOADS
 from coach import Profile, SPORTS
-from exercise_bank import (BANK_PATH, CUES, EQUIPMENT, CONSTRAINED, FREE_TEXT, SUPPORTED, demo_draft,
+from exercise_bank import (BANK_PATH, CUES, EQUIPMENT, CONSTRAINED, FREE_TEXT, SUPPORTED, _parse_restrictions, demo_draft,
                            drafting_prompt, drafting_schema, eligible_exercises, load_bank, plan_mode, resolve_draft)
 from safety import MOVEMENT_PATTERNS, lint_output, normalized
 
@@ -55,13 +55,16 @@ def test_bank_cross_product_never_displays_restricted_or_over_cap_entries(bank, 
         "No jumping or wrist extension.": ("jump",),
     }
     assert set(key for subset in examples.values() for key in subset) == set(MOVEMENT_PATTERNS)
-    for sport, equipment, restriction, cap in product(SPORTS, sorted(EQUIPMENT | {"None"}), examples, LOADS):
-        profile = replace(ATHLETE, age=age, sport=sport, position=SPORTS[sport][0],
+    positions = [(sport, position) for sport, roles in SPORTS.items() for position in roles]
+    for (sport, position), equipment, restriction, cap in product(positions, sorted(EQUIPMENT | {"None"}), examples, LOADS):
+        profile = replace(ATHLETE, age=age, sport=sport, position=position,
                           equipment=equipment, restrictions=restriction)
         eligible = eligible_exercises(bank, profile, FEATURE, cap)
         if not 10 <= age <= 19:
             assert not eligible
             continue
+        priority = [position not in entry.positions for entry in eligible.values()]
+        assert priority == sorted(priority)
 
         # Send the entire bank through the same resolver in drafts of at most seven rows.
         for start in range(0, len(bank.entries), 7):
@@ -95,6 +98,47 @@ def test_properties_make_restriction_age_and_equipment_checks_nonvacuous(bank):
     assert "straight_jog" not in eligible_exercises(bank, standard, FEATURE, "Light")
     assert "inside_pass" not in eligible_exercises(bank, standard, "No-equipment training", "Light")
     assert "small_hops" not in eligible_exercises(bank, replace(standard, age=11), FEATURE, "Moderate")
+
+
+@pytest.mark.parametrize("answer", ["none", " NIL. ", "N/A", "no", "nothing", "no restrictions", "no limits!", "-",
+                                    "இல்லை", "கட்டுப்பாடுகள் இல்லை", "कोई नहीं।", "कोई प्रतिबंध नहीं"])
+def test_explicit_no_restriction_answers_use_the_same_menu(bank, answer):
+    assert _parse_restrictions(answer) == (set(), False)
+    assert eligible_exercises(bank, replace(ATHLETE, restrictions=answer), FEATURE, "Light") == (
+        eligible_exercises(bank, ATHLETE, FEATURE, "Light")
+    )
+
+
+@pytest.mark.parametrize("answer", ["not sure", "- no wrist extension", "none until reviewed", "no other limits",
+                                    "இல்லை, கையை உயர்த்த வேண்டாம்", "कोई नहीं, हाथ मत उठाएं", "n / a"])
+def test_unclear_answers_still_get_rest_only(bank, answer):
+    assert _parse_restrictions(answer)[1]
+    menu = eligible_exercises(bank, replace(ATHLETE, restrictions=answer), FEATURE, "Light")
+    assert menu and all(entry.load == "Rest" for entry in menu.values())
+
+
+def test_no_does_not_cancel_a_named_restriction(bank):
+    assert _parse_restrictions("no jumping") == ({"jump"}, False)
+    assert "small_hops" not in eligible_exercises(bank, replace(ATHLETE, restrictions="no jumping"), FEATURE, "Moderate")
+    assert _parse_restrictions("none, no jumping") == ({"jump"}, True)
+
+
+def test_position_order_and_schema_reject_cross_sport_tags(bank, tmp_path):
+    profile = replace(ATHLETE, position="Goalkeeper", equipment="Ball and cones")
+    menu = eligible_exercises(bank, profile, FEATURE, "Moderate")
+    assert next(iter(menu)) == "goalkeeper_roll"
+    assert "inside_pass" in menu and "rest_break" in menu
+    assert "goalkeeper_roll" not in eligible_exercises(bank, replace(profile, equipment="None"), FEATURE, "Moderate")
+    data = json.loads(BANK_PATH.read_bytes())
+    row = next(row for row in data if row["id"] == "goalkeeper_roll")
+    path = tmp_path / "bank.json"
+    row.pop("positions")
+    path.write_text(json.dumps(data))
+    assert all(not item.positions for item in load_bank(path).entries if item.id == "goalkeeper_roll")
+    row["positions"] = ["Wicketkeeper"]
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError):
+        load_bank(path)
 
 
 @pytest.mark.parametrize("unknown", ["unknown_x", "", "REST_BREAK", "rest_break ", "../../bank", "空", "REST_BREAK\x00"])
