@@ -193,3 +193,14 @@ def test_optional_load_and_model_text_are_rendered_as_safe_html(app, monkeypatch
     assert all(not item.proto.unsafe_allow_javascript for item in app.get("html"))
     assert "Intense" not in html
     assert not app.get("markdown") or all("&#91;options&#93;" not in item.value for item in app.markdown)
+
+
+def test_overlong_profile_is_rejected_before_live_generation(monkeypatch):
+    import planning
+
+    send = Mock()
+    monkeypatch.setattr(coach, "generate", send)
+    profile = coach.Profile(15, "Football", "Goalkeeper", "Read crosses " * 20, "Ball and cones")
+    with pytest.raises(planning.ProfileInputTooLong):
+        planning.run_plan(profile, "Positional drills", "en", {}, "offline-test", "test-model")
+    send.assert_not_called()

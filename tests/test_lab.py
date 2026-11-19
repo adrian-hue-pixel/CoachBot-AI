@@ -84,14 +84,14 @@ def test_prompt_lab_releases_only_ablation_aggregates_after_blind_confirmation(m
     monkeypatch.setattr(lab, "ABLATION_ROOT", tmp_path)
     monkeypatch.setattr(lab, "RUNS_ROOT", tmp_path / "no-original-run")
     app = AppTest.from_string("from lab import render_lab\nrender_lab(True)").run()
-    assert not app.exception and len(app.dataframe) == 1 and not app.button
+    assert not app.exception and len(app.dataframe) == 2 and not app.button
     assert any("only the blind packets" in item.value for item in app.info)
 
     score_run(path)
     app.run()
-    assert len(app.dataframe) == 1 and len(app.button) == 1
+    assert len(app.dataframe) == 2 and len(app.button) == 1
     app.button[0].click().run()
-    assert not app.exception and len(app.dataframe) == 5
+    assert not app.exception and len(app.dataframe) == 6
     assert any("Scripted offline replay" in item.value for item in app.warning)
     summary = app.dataframe[1].value
     assert {"Human"} == set(summary["Evidence"])
@@ -104,4 +104,17 @@ def test_prompt_lab_releases_only_ablation_aggregates_after_blind_confirmation(m
 
     score_run(path, labels=False)
     app.run()
-    assert len(app.dataframe) == 1 and len(app.button) == 1
+    assert len(app.dataframe) == 2 and len(app.button) == 1
+
+
+def test_prompt_lab_shows_aggregate_offline_policy_results(monkeypatch, tmp_path):
+    monkeypatch.setattr(lab, "ABLATION_ROOT", tmp_path)
+    monkeypatch.setattr(lab, "RUNS_ROOT", tmp_path)
+    app = AppTest.from_string("from lab import render_lab\nrender_lab(True)").run()
+    assert not app.exception
+    table = next(row.value for row in app.dataframe if "Attack success (offline proxy)" in row.value)
+    expected = lab.load_redteam_report()
+    assert table["Cases"].sum() == 50
+    assert table["Mismatches"].tolist() == [row["Mismatches"] for row in expected]
+    assert any("A mismatch does not show what a model would answer" in caption.value for caption in app.caption)
+    assert "Can I share my birth date" not in str(app)

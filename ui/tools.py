@@ -11,7 +11,7 @@ from exports import calendar_plan, csv_plan, printable_plan
 from hydration import hydration_schedule
 from i18n import CHAT_REFUSAL, CHAT_SCOPE, gate_copy
 from planning import Cooldown, public_gate, run_chat
-from safety import chat_in_scope, chat_medical_request, lint_output, normalized
+from safety import INPUT_LIMITS, chat_request_action
 from ui.components import WEEKLY_MODULES, render_check_in_ring, render_shield, render_summary
 
 COOLDOWN_MESSAGE = "Please wait five seconds between Gemini requests."
@@ -138,18 +138,20 @@ def render_chat(profile, locale, entries, key, model, reduce_motion):
             _chat_message(answer, verdict)
     turns = st.session_state.get("cb_chat_turns", 0)
     limit = turns >= CHAT_LIMIT
-    question = st.chat_input("Ask about your sport", disabled=limit, max_chars=300)
+    question = st.chat_input("Ask about your sport", disabled=limit, max_chars=INPUT_LIMITS["chat"])
     if limit:
         st.info("This session has reached the ten-turn chat limit.")
         return
     if not question or not question.strip():
         return
+    action = chat_request_action(question, profile, any(entry[1] for entry in history))
     question = question.strip()
-    plain = normalized(question)
-    categories = lint_output(question, profile, sport_scope=True)
-    if chat_medical_request.search(plain) or "clinical_advice" in categories:
+    if action == "block":
+        st.info(f"Shorten your question to {INPUT_LIMITS['chat']} characters or fewer.")
+        return
+    if action == "refuse":
         question, verdict, answer = "Question withheld", None, CHAT_REFUSAL[locale]
-    elif categories or not chat_in_scope(plain, profile, any(entry[1] for entry in history)):
+    elif action == "redirect":
         question, verdict, answer = "Question withheld", None, CHAT_SCOPE[locale]
     else:
         try:

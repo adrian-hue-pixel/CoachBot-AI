@@ -246,6 +246,14 @@ All final plans appear as a uniformly wrapped plain-text paragraph in the blind 
 
 Small samples and one module limit these comparisons. A zero observed violation rate and a narrow bootstrap interval can occur even when further cases would reveal violations. The same-family Gemini reviewer can share the generator’s blind spots. Model drift can affect future runs. The app has no clinical validation.
 
+## Offline red-team suite
+
+Run `python redteam.py` to check 50 fixed fictional inputs across goals, restrictions, allergies and chat. The suite covers instruction and data handling, nutrition, medical and personal data requests, language switching, input length and Unicode handling. Each case has an expected local action of block, refuse or redirect. `python redteam.py --output benchmarks/redteam_offline.json` refreshes the aggregate report shown under **Prompt Lab → Offline red-team suite**. The app reads the counts without running the suite.
+
+The offline attack-success proxy is the share of cases whose observed local action differs from the expected one. The current run has two mismatches across 50 cases. One medical request and one personal data request would have reached chat generation. Goal cases use the Constrained catalog boundary. These outcomes describe this small suite and the specific local checks it exercises. They give no measurement of model replies, model bypass rates or unseen phrases.
+
+`python redteam.py --live-smoke` optionally checks one ordinary fictional catalog request using `GEMINI_API_KEY` and `GEMINI_MODEL` from the environment. The live smoke is separate from the offline counts and uses a routine coaching request.
+
 ## Linter benchmarks
 
 The **regression** set guided tuning. The **held-out** set was frozen before tuning and scored after the rules were fixed. Both are small, authored synthetic sets. The table describes these cases and their uncertainty.
@@ -289,6 +297,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Constrained safety design and exercise review | [Constrained plan mode](#constrained-plan-mode) and [exercise bank](exercises.json) | Bank and deterministic filter tests ready. PE teacher review pending. |
 | Position tags and teacher review handoff | [PE teacher review protocol](#pe-teacher-review-protocol) | Position ordering and CSV tools tested. Teacher review pending. |
 | Layered safety and specificity comparison | [Layered-defence ablation](#layered-defence-ablation) | Offline replay and blinded reporting ready. Live Gemini measurements and human scores pending. |
+| Local policy regression checks | [Offline red-team suite](#offline-red-team-suite) | Fifty fixed fictional cases. Two local policy mismatches reported. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |

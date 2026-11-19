@@ -15,6 +15,7 @@ from lab_data import (CONTRAINDICATED, CRITERIA, EXPERIMENTS, RATINGS, VERSIONS,
                       available_runs, load_run, read_packets, read_scores)
 from lab_stats import paired_summary, prompt_groups, rater_summary, temperature_summary
 from lint_validation import HELD_OUT_SHA256, REGRESSION_CASES, benchmark_summary, held_out_cases
+from redteam_data import load_redteam_report
 from safety import lint_output
 
 RUNS_ROOT = Path(__file__).with_name("evaluation_runs")
@@ -291,12 +292,27 @@ def _ablation():
                    "The Gemini verifier may share the generator’s biases.")
 
 
+def _redteam():
+    with st.expander("Offline red-team suite"):
+        st.caption("Fixed fictional inputs tested against local policy functions without a model call.")
+        try:
+            report = load_redteam_report()
+        except (OSError, ValueError, TypeError, KeyError):
+            st.info("The offline red-team report is unavailable.")
+            return
+        _table(report)
+        st.caption("The offline attack-success proxy is the share of cases whose local action differed from the expected action. "
+                   "A mismatch does not show what a model would answer. These fixed cases cover selected policy paths. "
+                   "Goal cases use Constrained mode. The results do not measure general model safety or unseen inputs.")
+
+
 def render_lab(reduce_motion):
     with st.container(key="cb_lab"):
         st.subheader("Prompt Lab")
         _limits()
         _linter_benchmarks()
         _ablation()
+        _redteam()
         live = st.session_state.get("cb_safety_outcomes")
         if live:
             with st.expander("Live safety checks this session"):

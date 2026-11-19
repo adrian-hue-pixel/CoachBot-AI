@@ -13,7 +13,7 @@ from demo_data import demo_plan, fallback_plan
 from exercise_bank import (CONSTRAINED, FREE_TEXT, constrained_fallback, demo_draft, drafting_prompt,
                            drafting_schema, eligible_exercises, load_bank, plan_mode, resolve_draft)
 from i18n import FALLBACK_TEXT, MODEL_LANGUAGES
-from safety import blocking_rule, lint_output
+from safety import INPUT_LIMITS, blocking_rule, input_too_long, lint_output
 from ui.components import validate_plan
 from verifier import verify_text
 
@@ -24,6 +24,10 @@ class Cooldown(Exception):
 
 class UncacheableFallback(Exception):
     """Fallback output is available for display, with no cache entry."""
+
+
+class ProfileInputTooLong(ValueError):
+    """A free-text athlete field exceeded its size limit."""
 
 
 def public_gate(profile, feature, entries):
@@ -72,6 +76,9 @@ def _cached_plan(fingerprint, _build):
 def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT, verify=False):
     if public_gate(profile, feature, entries):
         raise ValueError("Profile is paused by the pre-call gates.")
+    for field in INPUT_LIMITS.keys() - {"chat"}:
+        if input_too_long(field, getattr(profile, field)):
+            raise ProfileInputTooLong(field)
     mode = plan_mode(feature, mode)
     cap = workload_cap(profile.intensity, entries) if feature in coach.PHYSICAL else None
     reduced = cap == "Light" and profile.intensity != "Easy"

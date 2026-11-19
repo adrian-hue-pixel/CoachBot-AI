@@ -5,6 +5,7 @@ import streamlit as st
 from coach import FEATURES, SPORTS, Profile
 from exercise_bank import CONSTRAINED, PLAN_MODES, SUPPORTED, plan_mode
 from i18n import LANGUAGES
+from safety import INPUT_LIMITS
 from ui.components import render_stepper
 
 STEPS = ("Sport & position", "Goal & equipment", "Safety check-in", "Diet & language")
@@ -80,7 +81,7 @@ def profile_wizard(demo):
             if module in SUPPORTED:
                 _field(st.selectbox, "plan_mode", "Plan mode", PLAN_MODES)
         elif step == 1:
-            _field(st.text_input, "goal", "Goal or skill", max_chars=150, placeholder="Example: improve first touch under pressure")
+            _field(st.text_input, "goal", "Goal or skill", max_chars=INPUT_LIMITS["goal"], placeholder="Example: improve first touch under pressure")
             _field(st.selectbox, "equipment", "Equipment", ["None", "Ball and cones", "Resistance bands", "School gym"])
             _field(st.selectbox, "intensity", "Preferred intensity", ["Easy", "Moderate"])
         elif step == 2:
@@ -88,14 +89,14 @@ def profile_wizard(demo):
             _field(st.selectbox, "injury_status", "Injury status", [
                 "No injury reported", "Active injury or awaiting clearance", "Clinician cleared",
             ])
-            _field(st.text_input, "restrictions", "Clinician instructions or movements to avoid", max_chars=250)
+            _field(st.text_input, "restrictions", "Clinician instructions or movements to avoid", max_chars=INPUT_LIMITS["restrictions"])
             _field(st.selectbox, "check_in", "This week", [
                 "No pain or unusual soreness", "Mild muscle soreness", "Pain or worsening symptoms",
             ])
             _field(st.checkbox, "concern", "Concerning symptoms, such as suspected concussion or inability to bear weight")
         else:
             _field(st.selectbox, "diet", "Diet", ["Vegetarian", "Non-vegetarian", "Vegan"])
-            _field(st.text_input, "allergies", "Food allergies (leave blank if none)", max_chars=120)
+            _field(st.text_input, "allergies", "Food allergies (leave blank if none)", max_chars=INPUT_LIMITS["allergies"])
             _field(st.selectbox, "language", "Plan language", list(LANGUAGES))
             if demo:
                 st.caption("Demo data stays in this session. Leave out names and medical records.")

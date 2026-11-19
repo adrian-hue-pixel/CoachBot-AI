@@ -225,12 +225,13 @@ chat_medical_request = re.compile(
 
 
 CHAT_TOPIC = re.compile(
-    r"\b(?:footwork|space|position(?:ing|s)?|role|strateg\w*|passes?|passing|defend\w*|attack\w*|marking|shoot\w*|drill\w*|"
+    r"\b(?:footwork|space|position(?:ing|s)?|role|strateg\w*|pass(?:es|ing)?|defend\w*|attack\w*|marking|shoot\w*|drill\w*|"
     r"games?|match\w*|sport\w*|tactic\w*|team\w*|coach\w*|practic\w*|play\w*|throw\w*|"
     r"ball|movement|scor\w*|focus|nerv\w*|calm|confidence|mistakes?|prepare|preparation|cue\w*)\b"
     r"|ஆட்டம்|போட்டி|விளையாட்டு|பந்து|கவனம்|பயிற்சி|खेल|मैच|गेंद|तैयारी|अभ्यास|ध्यान", re.I
 )
 FOLLOW_UP = re.compile(r"^(?:why|how so|what do you mean|can you explain|an example|give me an example)\b", re.I)
+INPUT_LIMITS = {"goal": 150, "restrictions": 250, "allergies": 120, "chat": 300}
 
 
 def chat_in_scope(question, profile, has_context):
@@ -244,6 +245,23 @@ def chat_in_scope(question, profile, has_context):
 
 def normalized(text):
     return " ".join(unicodedata.normalize("NFKC", text).casefold().replace("’", "'").split())
+
+
+def input_too_long(field, text):
+    return len(text) > INPUT_LIMITS[field]
+
+
+def chat_request_action(question, profile, has_context):
+    """Decide whether a chat turn can reach generation."""
+    if input_too_long("chat", question):
+        return "block"
+    plain = normalized(question)
+    categories = lint_output(question, profile, sport_scope=True)
+    if chat_medical_request.search(plain) or "clinical_advice" in categories:
+        return "refuse"
+    if categories or not chat_in_scope(plain, profile, has_context):
+        return "redirect"
+    return "allow"
 
 
 def lint_output(output, profile=None, *, cap=None, sport_scope=False, rest_only=False):
