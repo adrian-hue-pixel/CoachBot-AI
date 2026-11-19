@@ -9,7 +9,7 @@ import streamlit as st
 from checkins import CheckIn, checkin_rule, recent_checkins
 from exports import calendar_plan, csv_plan, printable_plan
 from hydration import hydration_schedule
-from i18n import CHAT_REFUSAL, CHAT_SCOPE, gate_copy
+from i18n import CHAT_REFUSAL, CHAT_SCOPE, CHAT_URGENT, gate_copy
 from planning import Cooldown, public_gate, run_chat
 from safety import INPUT_LIMITS, chat_request_action
 from ui.components import WEEKLY_MODULES, render_check_in_ring, render_shield, render_summary
@@ -149,7 +149,10 @@ def render_chat(profile, locale, entries, key, model, reduce_motion):
     if action == "block":
         st.info(f"Shorten your question to {INPUT_LIMITS['chat']} characters or fewer.")
         return
-    if action == "refuse":
+    if action == "urgent":
+        st.session_state.cb_training_paused = True
+        question, verdict, answer = "Question withheld", None, CHAT_URGENT[locale]
+    elif action == "refuse":
         question, verdict, answer = "Question withheld", None, CHAT_REFUSAL[locale]
     elif action == "redirect":
         question, verdict, answer = "Question withheld", None, CHAT_SCOPE[locale]

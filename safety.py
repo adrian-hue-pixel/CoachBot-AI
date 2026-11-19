@@ -215,20 +215,60 @@ def _named_movement(pattern, text):
     return re.search(rf"(?<!\w)(?:{pattern})(?!\w)", text)
 
 
+MEDICAL_ROLE = re.compile(
+    r"\b(?:role[ -]?play as|act as|pretend (?:to be|you(?:'re| are))) (?:a |my |the )?(?:doctor|clinician|physician)\b",
+    re.I,
+)
 chat_medical_request = re.compile(
     r"\b(?:what(?:'s| is) wrong with|what (?:injury|condition) (?:do|might) i have|signs of|"
     r"is (?:it|this|my) (?:a |an )?(?:sprain|fracture|concussion|torn)|how (?:do i |to )?(?:treat|heal|rehab))\b"
     r"|\b(?:do i have (?:a |an )?(?:concussion|fracture|sprain|tear)|"
     r"my (?:ankle|knee|shoulder|head|wrist) (?:hurts|is swollen)|is my .*? sprained)\b"
-    r"|என்ன காயம்|इलाज|क्या .* चोट", re.I
+    r"|\b(?:headaches?|migraines?)\b|\bassess\b.{0,45}\b(?:pain|injur\w*|symptoms?|swelling|my (?:ankle|knee|shoulder|wrist|head))\b"
+    r"|\b(?:play|train|practice|run) through (?:the |my |your )?pain\b"
+    r"|என்ன காயம்|தலைவலி|इलाज|क्या .* चोट|सिर\s*(?:में\s*)?दर्द", re.I
+)
+
+URGENT_SYMPTOMS = re.compile(
+    r"\b(?:dizz(?:y|iness)|light[ -]?headed|faint(?:ed|ing)?|pass(?:ed|ing) out|lost consciousness|"
+    r"chest (?:pain|tightness|pressure|hurts|aches)|pain in (?:my|the) chest|"
+    r"(?:trouble|difficulty) breathing|shortness of breath|breathless(?:ness)?|(?:can't|cannot|hard to) breathe|"
+    r"breathing (?:trouble|difficulty|problems?)|numb(?:ness)?|concussions?)\b"
+    r"|\b(?:severe|sudden|worsening|bad) headaches?\b|\bheadaches?\b.{0,45}\b(?:after a (?:hit|fall)|getting worse)\b"
+    r"|தலைச்சுற்ற|தலை சுற்ற|மயக்க|மார்பு வலி|நெஞ்சு வலி|மூச்சுத்? திணற|மூச்சு விட (?:சிரமம்|முடியவில்லை)|உணர்வின்மை|மூளை அதிர்ச்சி"
+    r"|चक्कर|बेहोश|सीने में (?:दर्द|दबाव)|छाती में दर्द|दम घुट|सुन्न|कन्कशन|मस्तिष्काघात"
+    r"|स[ाँं]+स (?:लेने में (?:दिक्कत|तकली[फफ़]+|परेशानी|मुश्किल|कठिनाई)|नहीं (?:आ|ले)|फूल)",
+    re.I,
+)
+CHAT_IDENTIFIERS = re.compile(
+    r"\b(?:birth[ -]?date|date of birth|d\.?o\.?b\.?|birthday|my name is|"
+    r"(?:school|class) name|(?:my|your|our|which|what) school\b(?! (?:team|game|match|practice|sport))|"
+    r"(?:my|your|which) class\b|(?:i (?:study|go) at|i(?: am|'m) in (?:year|grade|class))|"
+    r"(?:school|class|grade) (?:number|[0-9]+)|(?:social(?: media)?|instagram|snapchat|tiktok|discord) "
+    r"(?:handle|username|account|profile|id)|(?:my|your) (?:handle|username|instagram|snapchat|tiktok|discord))\b"
+    r"|(?<!\w)@[a-z0-9_][\w.]{1,30}|பிறந்த தேதி|பிறந்த நாள்|என் பெயர்|பள்ளியின் பெயர்|என் வகுப்பு"
+    r"|जन्म(?:तिथि| तिथि| की तारीख|दिन)|मेरा नाम|मेरे स्कूल का नाम|मेरी कक्षा",
+    re.I,
+)
+INSTRUCTION_OVERRIDE = re.compile(
+    r"\b(?:ignore|disregard|forget|override|skip|set aside) (?:(?:all|of|the|your|any) ){0,3}"
+    r"(?:(?:earlier|previous|prior|original|above|system|safety|coach(?:'s)?) )+(?:rules|limits|instructions|guidance)\b"
+    r"|\b(?:print|show|reveal|repeat|read out|display|copy|share) (?:me )?(?:the |your |all )?"
+    r"(?:(?:hidden|original|system|internal|developer) (?:prompt|instructions|rules)|instructions (?:you were given|from the system))\b",
+    re.I,
 )
 
 
 CHAT_TOPIC = re.compile(
-    r"\b(?:footwork|space|position(?:ing|s)?|role|strateg\w*|pass(?:es|ing)?|defend\w*|attack\w*|marking|shoot\w*|drill\w*|"
+    r"\b(?:footwork|space|position(?:ing|s)?|(?:my|your|the) role|strateg\w*|pass(?:es|ing)?|defend\w*|attack\w*|marking|shoot\w*|drill\w*|"
     r"games?|match\w*|sport\w*|tactic\w*|team\w*|coach\w*|practic\w*|play\w*|throw\w*|"
-    r"ball|movement|scor\w*|focus|nerv\w*|calm|confidence|mistakes?|prepare|preparation|cue\w*)\b"
-    r"|ஆட்டம்|போட்டி|விளையாட்டு|பந்து|கவனம்|பயிற்சி|खेल|मैच|गेंद|तैयारी|अभ्यास|ध्यान", re.I
+    r"ball|movement|scor\w*|focus|nerv\w*|calm|confidence|mistakes?|prepare|preparation|cue\w*|"
+    r"penalt(?:y|ies)|free[ -]?kick|kickoff|shootout|batting|bowling|rebound\w*|dribbl\w*|visualiz\w*)\b"
+    r"|ஆட்டம்|போட்டி|விளையாட்டு|பந்து|கவனம்|பயிற்சி|பெனால்டி|கோல்கீப்பர்|கோல் கீப்பர்|கோல் காப்பாளர்|"
+    r"விக்கெட் கீப்பர்|விக்கெட் காப்பாளர்|பேட்ஸ்மேன்|பேட்டிங்|மட்டையாளர்|பவுலர்|பாதுகாப்பாளர்|கூடைப்பந்து|கால்பந்து|கிரிக்கெட்|"
+    r"அட்டாக்கர்|ஸ்ட்ரைக்கர்|மிட்ஃபீல்டர்|பாயிண்ட் கார்ட்|மனதளவில்"
+    r"|खेल|मैच|गेंद|तैयारी|अभ्यास|ध्यान|पेनल्टी|गोलकीपर|गोलरक्षक|स्ट्राइकर|मिडफील्डर|"
+    r"डिफेंडर|बल्लेबाज|बल्लेबाज़|गेंदबाज|गेंदबाज़|विकेट\s*कीपर|पॉइंट गार्ड|बास्केटबॉल|फुटबॉल|क्रिकेट|मानसिक तैयारी", re.I
 )
 FOLLOW_UP = re.compile(r"^(?:why|how so|what do you mean|can you explain|an example|give me an example)\b", re.I)
 INPUT_LIMITS = {"goal": 150, "restrictions": 250, "allergies": 120, "chat": 300}
@@ -251,15 +291,25 @@ def input_too_long(field, text):
     return len(text) > INPUT_LIMITS[field]
 
 
+def free_text_instruction_override(profile):
+    """Spot direct requests to change policy in profile data sent by Free-text V3."""
+    fields = (normalized(getattr(profile, field)) for field in ("goal", "restrictions", "allergies"))
+    return any(INSTRUCTION_OVERRIDE.search(text) or MEDICAL_ROLE.search(text) for text in fields)
+
+
 def chat_request_action(question, profile, has_context):
     """Decide whether a chat turn can reach generation."""
     if input_too_long("chat", question):
         return "block"
     plain = normalized(question)
+    if URGENT_SYMPTOMS.search(plain):
+        return "urgent"
+    if CHAT_IDENTIFIERS.search(plain):
+        return "redirect"
     categories = lint_output(question, profile, sport_scope=True)
-    if chat_medical_request.search(plain) or "clinical_advice" in categories:
+    if chat_medical_request.search(plain) or MEDICAL_ROLE.search(plain) or "clinical_advice" in categories:
         return "refuse"
-    if categories or not chat_in_scope(plain, profile, has_context):
+    if categories or INSTRUCTION_OVERRIDE.search(plain) or not chat_in_scope(plain, profile, has_context):
         return "redirect"
     return "allow"
 

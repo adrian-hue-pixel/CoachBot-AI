@@ -7,7 +7,7 @@ import streamlit as st
 from coach import DEFAULT_MODEL
 from exercise_bank import FREE_TEXT, SUPPORTED, load_bank, plan_mode
 from i18n import LANGUAGES, gate_copy
-from planning import Cooldown, ProfileInputTooLong, public_gate, run_plan
+from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
 from ui.components import render_header, render_plan, render_shield, render_skeleton
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
@@ -58,6 +58,9 @@ def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT
     except ProfileInputTooLong:
         status.update(label="Profile needs a shorter answer", state="complete", expanded=False)
         return "info", "Shorten the free-text answers in your athlete profile and try again."
+    except ProfileInstructionsRejected:
+        status.update(label="Profile needs a sport goal", state="complete", expanded=False)
+        return "info", "Enter a sport goal or relevant restrictions in your athlete profile and try again."
     except Exception as error:
         status.update(label="Plan unavailable", state="error", expanded=False)
         code = getattr(error, "code", None)

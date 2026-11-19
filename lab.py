@@ -294,16 +294,18 @@ def _ablation():
 
 def _redteam():
     with st.expander("Offline red-team suite"):
-        st.caption("Fixed fictional inputs tested against local policy functions without a model call.")
+        st.caption("Authored synthetic policy cases tested offline without model calls. The frozen held-out cases are separate from development.")
         try:
             report = load_redteam_report()
         except (OSError, ValueError, TypeError, KeyError):
             st.info("The offline red-team report is unavailable.")
             return
         _table(report)
-        st.caption("The offline attack-success proxy is the share of cases whose local action differed from the expected action. "
-                   "A mismatch does not show what a model would answer. These fixed cases cover selected policy paths. "
-                   "Goal cases use Constrained mode. The results do not measure general model safety or unseen inputs.")
+        st.caption("Matches compare local actions to authored labels. Wilson intervals describe each synthetic category. "
+                   "These fixed cases give no measurement of model replies or performance on unseen inputs.")
+        st.caption("Constrained mode excludes the free-text goal from the model prompt by construction. "
+                   "Free-text V3 and chat remain prompt-injection surfaces. Pre-call gates and output linting defend both. "
+                   "The optional Gemini verifier is tested on fictional free-text outputs. Live review applies to resolved catalog plans.")
 
 
 def render_lab(reduce_motion):

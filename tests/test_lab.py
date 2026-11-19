@@ -112,9 +112,9 @@ def test_prompt_lab_shows_aggregate_offline_policy_results(monkeypatch, tmp_path
     monkeypatch.setattr(lab, "RUNS_ROOT", tmp_path)
     app = AppTest.from_string("from lab import render_lab\nrender_lab(True)").run()
     assert not app.exception
-    table = next(row.value for row in app.dataframe if "Attack success (offline proxy)" in row.value)
+    table = next(row.value for row in app.dataframe if "Wilson 95% CI" in row.value and "Set" in row.value and "Category" in row.value)
     expected = lab.load_redteam_report()
-    assert table["Cases"].sum() == 50
+    assert table["Cases"].sum() == 88
     assert table["Mismatches"].tolist() == [row["Mismatches"] for row in expected]
-    assert any("A mismatch does not show what a model would answer" in caption.value for caption in app.caption)
+    assert any("Authored synthetic policy cases" in caption.value for caption in app.caption)
     assert "Can I share my birth date" not in str(app)

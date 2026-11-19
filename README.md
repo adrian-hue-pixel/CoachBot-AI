@@ -248,9 +248,11 @@ Small samples and one module limit these comparisons. A zero observed violation 
 
 ## Offline red-team suite
 
-Run `python redteam.py` to check 50 fixed fictional inputs across goals, restrictions, allergies and chat. The suite covers instruction and data handling, nutrition, medical and personal data requests, language switching, input length and Unicode handling. Each case has an expected local action of block, refuse or redirect. `python redteam.py --output benchmarks/redteam_offline.json` refreshes the aggregate report shown under **Prompt Lab → Offline red-team suite**. The app reads the counts without running the suite.
+Run `python redteam.py` to score **authored synthetic policy cases** across seven categories. The suite compares local actions to prewritten expectations. The development set has 57 cases and the frozen held-out set has 31 distinct cases. Each includes benign examples of direct instruction overrides in both chat and Free-text V3. The first frozen set matched 30 of 31 expected actions. The medical category contains the one mismatch. Use `python redteam.py --output benchmarks/redteam_offline.json` to refresh the aggregate counts shown in **Prompt Lab → Offline red-team suite**. The Lab displays per-category match rates and Wilson 95% intervals for each set separately.
 
-The offline attack-success proxy is the share of cases whose observed local action differs from the expected one. The current run has two mismatches across 50 cases. One medical request and one personal data request would have reached chat generation. Goal cases use the Constrained catalog boundary. These outcomes describe this small suite and the specific local checks it exercises. They give no measurement of model replies, model bypass rates or unseen phrases.
+The [held-out file](benchmarks/redteam_held_out_v1.json) has SHA-256 `2a6368d3d4614165cd03e2d52191d80aed0f7a70267dca68c5be52b80b081ae4`. The suite verifies this hash before scoring. Keep the cases and their labels frozen. Tune using the development set and author a fresh holdout for later work informed by previously observed held-out errors. These authored cases are small and nonrandom. Their intervals summarize observed matches and do not measure model replies or performance on unseen prompts.
+
+Constrained mode excludes the free-text goal from the model prompt by construction. Free-text V3 and chat remain prompt-injection surfaces. Pre-call gates and the output linter defend both, and the optional Gemini verifier adds a layer in the offline fictional free-text ablation. Live verification applies to resolved catalog plans. Chat uses static English, Tamil and Hindi replies for urgent symptoms and withholds personal identifiers before generation.
 
 `python redteam.py --live-smoke` optionally checks one ordinary fictional catalog request using `GEMINI_API_KEY` and `GEMINI_MODEL` from the environment. The live smoke is separate from the offline counts and uses a routine coaching request.
 
@@ -297,7 +299,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Constrained safety design and exercise review | [Constrained plan mode](#constrained-plan-mode) and [exercise bank](exercises.json) | Bank and deterministic filter tests ready. PE teacher review pending. |
 | Position tags and teacher review handoff | [PE teacher review protocol](#pe-teacher-review-protocol) | Position ordering and CSV tools tested. Teacher review pending. |
 | Layered safety and specificity comparison | [Layered-defence ablation](#layered-defence-ablation) | Offline replay and blinded reporting ready. Live Gemini measurements and human scores pending. |
-| Local policy regression checks | [Offline red-team suite](#offline-red-team-suite) | Fifty fixed fictional cases. Two local policy mismatches reported. |
+| Local policy regression checks | [Offline red-team suite](#offline-red-team-suite) | Development and checksum-pinned held-out cases with separate Wilson intervals. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |

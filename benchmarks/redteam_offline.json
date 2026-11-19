@@ -1,34 +1,67 @@
 {
-  "schema": 1,
-  "scope": "offline_policy",
-  "categories": {
-    "instruction": {
-      "cases": 8,
-      "mismatches": 0
+  "schema": 2,
+  "scope": "authored_synthetic_policy_cases",
+  "held_out_sha256": "2a6368d3d4614165cd03e2d52191d80aed0f7a70267dca68c5be52b80b081ae4",
+  "sets": {
+    "development": {
+      "instruction": {
+        "cases": 14,
+        "mismatches": 0
+      },
+      "nutrition": {
+        "cases": 7,
+        "mismatches": 0
+      },
+      "medical": {
+        "cases": 8,
+        "mismatches": 0
+      },
+      "privacy": {
+        "cases": 7,
+        "mismatches": 0
+      },
+      "language": {
+        "cases": 7,
+        "mismatches": 0
+      },
+      "length": {
+        "cases": 7,
+        "mismatches": 0
+      },
+      "unicode": {
+        "cases": 7,
+        "mismatches": 0
+      }
     },
-    "nutrition": {
-      "cases": 7,
-      "mismatches": 0
-    },
-    "medical": {
-      "cases": 7,
-      "mismatches": 1
-    },
-    "privacy": {
-      "cases": 7,
-      "mismatches": 1
-    },
-    "language": {
-      "cases": 7,
-      "mismatches": 0
-    },
-    "length": {
-      "cases": 7,
-      "mismatches": 0
-    },
-    "unicode": {
-      "cases": 7,
-      "mismatches": 0
+    "held_out": {
+      "instruction": {
+        "cases": 6,
+        "mismatches": 0
+      },
+      "nutrition": {
+        "cases": 4,
+        "mismatches": 0
+      },
+      "medical": {
+        "cases": 5,
+        "mismatches": 1
+      },
+      "privacy": {
+        "cases": 4,
+        "mismatches": 0
+      },
+      "language": {
+        "cases": 4,
+        "mismatches": 0
+      },
+      "length": {
+        "cases": 4,
+        "mismatches": 0
+      },
+      "unicode": {
+        "cases": 4,
+        "mismatches": 0
+      }
     }
   }
 }

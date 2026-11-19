@@ -13,7 +13,7 @@ from demo_data import demo_plan, fallback_plan
 from exercise_bank import (CONSTRAINED, FREE_TEXT, constrained_fallback, demo_draft, drafting_prompt,
                            drafting_schema, eligible_exercises, load_bank, plan_mode, resolve_draft)
 from i18n import FALLBACK_TEXT, MODEL_LANGUAGES
-from safety import INPUT_LIMITS, blocking_rule, input_too_long, lint_output
+from safety import INPUT_LIMITS, blocking_rule, chat_request_action, free_text_instruction_override, input_too_long, lint_output
 from ui.components import validate_plan
 from verifier import verify_text
 
@@ -28,6 +28,10 @@ class UncacheableFallback(Exception):
 
 class ProfileInputTooLong(ValueError):
     """A free-text athlete field exceeded its size limit."""
+
+
+class ProfileInstructionsRejected(ValueError):
+    """A profile field tried to override Free-text V3 instructions."""
 
 
 def public_gate(profile, feature, entries):
@@ -80,6 +84,8 @@ def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT, veri
         if input_too_long(field, getattr(profile, field)):
             raise ProfileInputTooLong(field)
     mode = plan_mode(feature, mode)
+    if mode == FREE_TEXT and free_text_instruction_override(profile):
+        raise ProfileInstructionsRejected
     cap = workload_cap(profile.intensity, entries) if feature in coach.PHYSICAL else None
     reduced = cap == "Light" and profile.intensity != "Easy"
     bank = load_bank() if mode == CONSTRAINED else None
@@ -174,6 +180,8 @@ def record_verdict(verdict):
 
 
 def run_chat(profile, locale, question, history, key, model):
+    if chat_request_action(question, profile, any(entry[1] for entry in history)) != "allow":
+        raise ValueError("Chat input was withheld by local policy.")
     if key:
         reserve_live_request()
     messages = [{"question": asked, "reply": reply} for asked, verdict, reply in history if verdict]
