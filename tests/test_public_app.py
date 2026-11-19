@@ -145,6 +145,7 @@ def test_wizard_preserves_answers_and_updates_illustration(app, monkeypatch):
     app.selectbox[2].select("No-equipment training").run()
     assert 'data-cb-sport="basketball"' in markup(app)
     assert 'aria-label="Illustrative basketball position map for Forward"' in markup(app)
+    next(item for item in app.selectbox if item.label == "Plan mode").select("Free-text V3").run()
     click(app, "Continue")
     app.text_input[0].set_value("  Review court spacing  ").run()
     app.selectbox[0].select("School gym").run()
@@ -180,6 +181,7 @@ def test_optional_load_and_model_text_are_rendered_as_safe_html(app, monkeypatch
     monkeypatch.setattr(coach, "generate", generate)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
     app.run()
+    next(item for item in app.selectbox if item.label == "Plan mode").select("Free-text V3").run()
     for _ in range(3):
         click(app, "Continue")
     click(app, "Generate coaching plan")

@@ -10,6 +10,8 @@ import streamlit as st
 import coach
 from checkins import checkin_rule, workload_cap
 from demo_data import demo_plan, fallback_plan
+from exercise_bank import (CONSTRAINED, FREE_TEXT, constrained_fallback, demo_draft, drafting_prompt,
+                           drafting_schema, eligible_exercises, load_bank, plan_mode, resolve_draft)
 from i18n import FALLBACK_TEXT, MODEL_LANGUAGES
 from safety import blocking_rule, lint_output
 from ui.components import validate_plan
@@ -66,10 +68,18 @@ def _cached_plan(fingerprint, _build):
     return result
 
 
-def run_plan(profile, feature, locale, entries, key, model):
+def run_plan(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
+    if public_gate(profile, feature, entries):
+        raise ValueError("Profile is paused by the pre-call gates.")
+    mode = plan_mode(feature, mode)
     cap = workload_cap(profile.intensity, entries) if feature in coach.PHYSICAL else None
     reduced = cap == "Light" and profile.intensity != "Easy"
-    data = [asdict(profile), feature, "V3", locale, cap, reduced, model, bool(key)]
+    bank = load_bank() if mode == CONSTRAINED else None
+    data = [asdict(profile), feature, "V3", locale, cap, reduced, model, bool(key), mode,
+            bank.fingerprint if bank else None]
+    eligible = eligible_exercises(bank, profile, feature, "Rest" if reduced else cap) if bank else None
+    if bank and not eligible:
+        return "fallback", constrained_fallback(locale), False
     fingerprint = sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
     generated = False
 
@@ -78,6 +88,8 @@ def run_plan(profile, feature, locale, entries, key, model):
         if key:
             reserve_live_request()
         generated = True
+        if bank:
+            return _run_constrained(profile, feature, locale, cap, key, model, bank, eligible)
         message = coach.prompt(profile, feature, "V3")
         message += f"\nWrite reader-facing text in {MODEL_LANGUAGES[locale]}. Keep any load enum in English."
         if cap:
@@ -106,6 +118,28 @@ def run_plan(profile, feature, locale, entries, key, model):
     if generated and key:
         record_verdict(verdict)
     return verdict, plan, generated
+
+
+def _run_constrained(profile, feature, locale, cap, key, model, bank, eligible):
+    message = drafting_prompt(profile, feature, locale, eligible)
+    schema = drafting_schema(eligible, locale)
+
+    def candidate(violations):
+        if not key:
+            return demo_draft(eligible, feature, locale)
+        retry = ("\nThe previous draft was rejected. Use only IDs and exact cues from the menu."
+                 if violations else "")
+        try:
+            return coach.generate(key, model, message + retry, 0.2 if violations else coach.FEATURES[feature][1],
+                                  response_schema=schema)
+        except json.JSONDecodeError:
+            return None
+
+    verdict, (plan, _) = _verdict(
+        candidate, lambda draft: resolve_draft(draft, bank, eligible, profile, locale, cap),
+        lambda result: result[1], lambda: (constrained_fallback(locale), ()), retry=bool(key),
+    )
+    return verdict, plan
 
 
 def record_verdict(verdict):

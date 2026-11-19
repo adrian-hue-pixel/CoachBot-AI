@@ -104,6 +104,7 @@ def test_linter_retry_records_actual_outcome(app, monkeypatch, retry_ok, label):
     app.secrets["GEMINI_API_KEY"] = "offline-test"
     app.run()
     assert "Safety check · Passed</p>" not in markup(app)
+    next(item for item in app.selectbox if item.label == "Plan mode").select("Free-text V3").run()
     for _ in range(3):
         click(app, "Continue")
     click(app, "Generate coaching plan")
@@ -122,6 +123,7 @@ def test_cache_is_session_local_and_cooldown_guards_new_live_work(app, monkeypat
     monkeypatch.setattr(coach, "generate", send)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
     app.run()
+    next(item for item in app.selectbox if item.label == "Plan mode").select("Free-text V3").run()
     for _ in range(3):
         click(app, "Continue")
     click(app, "Generate coaching plan")

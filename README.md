@@ -7,6 +7,7 @@ CoachBot AI is a Streamlit assistant for young football, cricket and basketball 
 | Area | What it does |
 | --- | --- |
 | Plan wizard | Uses sport, position, goal, equipment, safety check-in and diet to build a plan. Supports English, Tamil and Hindi output. |
+| Constrained plan mode | Selects eligible exercise IDs and short approved cues from a teacher-reviewable bank. Free-text V3 is available for comparison. |
 | Coaching plan | Shows the rationale for each activity, weekly timeline, suitability notes and food-source coverage where applicable. Exports calendar, CSV and printable HTML. |
 | Check-ins | Records seven days of session-only soreness and effort. Rewards consistency on practice and rest days. Plans can maintain or reduce workload. |
 | Match prep | Runs a breathing timer and hydration reminders without Gemini. |
@@ -22,8 +23,11 @@ flowchart TD
     Gate -->|Paused| Referral["Static guidance"]
     Gate -->|Eligible| Source{"Draft source"}
     Source --> Live["Gemini V3 or chat prompt"]
+    Source --> Menu["Eligible exercise IDs and cues"]
     Source --> Demo["Demo example"]
     Live --> Lint["Response checks and linter"]
+    Menu --> IDs["Draft and resolve exercise IDs"]
+    IDs --> Lint
     Demo --> Lint
     Lint -->|Pass| Show["Plan, chat or download"]
     Lint -->|Live draft flagged| Retry["One lower-temperature retry"]
@@ -32,7 +36,7 @@ flowchart TD
     Lint -->|Demo example flagged| Safe
 ```
 
-The session-scoped cache holds accepted plan results. Personal profile inputs and chat history live in the current session. Live requests send the supplied profile to Gemini. Prompt Lab reads a separate local directory of fictional research runs and displays aggregate results after unblinding.
+The session-scoped cache holds accepted plan results. Personal profile inputs and chat history live in the current session. Live Free-text V3 and chat requests send profile context to Gemini. Constrained requests send the eligible exercise menu and preset choices. Prompt Lab reads a separate local directory of fictional research runs and displays aggregate results after unblinding.
 
 ## Problem and research
 
@@ -163,6 +167,21 @@ The check-in panel tracks seven days. Each rest or practice day contributes one 
 
 Trusted breathing and celebration markup runs inside `st.iframe`. Streamlit 1.61 logs a deprecation warning for the former `st.components.v1.html` helper. The celebration uses a pinned canvas-confetti release and respects reduced motion.
 
+## Constrained plan mode
+
+Constrained is the default for Full-body training, Warm-up and cooldown, Positional drills, No-equipment training and Weekly progress adaptation. Choose **Free-text V3** in the wizard to use the existing comparison mode. The other modules use V3.
+
+[The exercise bank](exercises.json) contains 48 general PE activities. The app first applies the existing profile and check-in gates. It then builds an eligible menu from sport, age, available equipment, named movement restrictions and the check-in workload cap. It uses rest-only choices when restrictions are unclear or the check-in rules call for rest. The age fields are conservative project eligibility settings.
+
+Gemini receives the selected sport, position, module and eligible activity and cue menu. The athlete's free-text fields stay out of the Constrained request. The response contains exercise IDs and short cues from a fixed list. The app rejects unknown IDs, removes known entries that are currently ineligible, and checks each displayed cue with the linter. Activity names and loads come from the bank. The model cannot add activities, loads or instructions by returning extra fields. If no valid plan remains, the app gives static guidance without displaying any exercise. The activity names are in English. The short cues and plan framing follow the selected language.
+
+### PE teacher review protocol
+
+1. Open `exercises.json` and review each record by its ID. Check the activity wording, sport, movement tags, load, minimum age and required equipment for a school PE setting.
+2. Check that all movements an activity requires are tagged using the project's existing taxonomy. Confirm that a Rest entry involves no prescribed movement.
+3. Correct unsuitable entries before marking them reviewed. Record the reviewer's agreed display name or role in `reviewer` and set `reviewed` to `true` only for each accepted entry. Reopen review after changing any activity or eligibility field.
+4. Commit the reviewed bank and rerun the bank and gate tests. The app shows the pending-review notice until every record has both fields. The supplied entries are awaiting teacher review.
+
 ## Summary accessibility checks
 
 The browser test in `tests/test_summary_dom.py` uses a 360px Chromium viewport and counts visible summary paragraphs with no hidden ancestor. It checks the partial stream, the complete stream before replacement, the final static paragraph, the app's **Reduce motion** toggle and the browser's reduced-motion preference. It also inspects the browser accessibility tree. The Python 3.12 CI job installs Chromium and enables the test using `COACHBOT_BROWSER_TEST=1`.
@@ -234,6 +253,7 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Functional GitHub repository and working script link | [Streamlit app](app.py), [Gemini prompts and client](coach.py), [evaluation script](evaluate.py), [dependencies](requirements.txt) | Source ready. Publish the repository and confirm assessor access. |
 | Research findings and academic references | [Problem and research](#problem-and-research) and [linter benchmarks](#linter-benchmarks) | Research basis and synthetic metrics documented. |
 | Model, tuning techniques and at least ten prompts | [Modules and generation settings](#modules-and-generation-settings) | Eleven modules and V1/V2/V3 documented. |
+| Constrained safety design and exercise review | [Constrained plan mode](#constrained-plan-mode) and [exercise bank](exercises.json) | Bank and deterministic filter tests ready. PE teacher review pending. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#screenshot-placeholders) | Capture real screenshots with every credential hidden. |
 | README demonstration screenshots | [Screenshot placeholders](#screenshot-placeholders) | Capture the deployed app on desktop and mobile. |

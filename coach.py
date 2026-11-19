@@ -72,7 +72,7 @@ def prompt(profile, feature, version):
         message += f"\nRules:\n{SAFETY}"
     return message
 
-def generate(api_key, model, message, temperature, structured=True):
+def generate(api_key, model, message, temperature, structured=True, *, response_schema=None):
     from google import genai
     from google.genai import types
 
@@ -85,7 +85,7 @@ def generate(api_key, model, message, temperature, structured=True):
     if structured:
         options.update(
             response_mime_type="application/json",
-            response_schema={
+            response_schema=response_schema if response_schema is not None else {
                 "type": "OBJECT",
                 "properties": {
                     "summary": {"type": "STRING"},

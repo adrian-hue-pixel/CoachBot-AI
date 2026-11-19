@@ -5,6 +5,7 @@ import os
 import streamlit as st
 
 from coach import DEFAULT_MODEL
+from exercise_bank import FREE_TEXT, SUPPORTED, load_bank, plan_mode
 from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, public_gate, run_plan
 from ui.components import render_header, render_plan, render_shield, render_skeleton
@@ -32,7 +33,7 @@ def gemini_settings():
     return key, model
 
 
-def submit_profile(profile, feature, locale, entries, key, model):
+def submit_profile(profile, feature, locale, entries, key, model, mode=FREE_TEXT):
     status = st.status("Preparing your plan…", expanded=True)
     status.write("Reading profile")
     rule = public_gate(profile, feature, entries)
@@ -50,7 +51,7 @@ def submit_profile(profile, feature, locale, entries, key, model):
         render_skeleton()
 
     try:
-        verdict, result, evaluated = run_plan(profile, feature, locale, entries, key, model)
+        verdict, result, evaluated = run_plan(profile, feature, locale, entries, key, model, mode=mode)
     except Cooldown:
         status.update(label="Request cooldown", state="complete", expanded=False)
         return "info", COOLDOWN_MESSAGE
@@ -63,8 +64,10 @@ def submit_profile(profile, feature, locale, entries, key, model):
             if key and verdict != "passed":
                 status.write("Requested a second draft")
             status.write(f"Safety check · {VERDICTS[verdict]}")
-        status.update(label="Plan ready to review" if evaluated else "Saved plan ready",
-                      state="complete", expanded=False)
+        label = "Plan ready to review" if evaluated else "Saved plan ready"
+        if mode != FREE_TEXT and verdict == "fallback":
+            label = "Safe fallback ready"
+        status.update(label=label, state="complete", expanded=False)
         return "plan", (verdict, result)
     finally:
         loading.empty()
@@ -81,7 +84,8 @@ def show_outcome(outcome, feature, locale, demo, submitted, reduce_motion):
         verdict, plan = content
         safety_badge(verdict)
         render_plan(plan, feature, stream=submitted, reduce_motion=reduce_motion)
-        render_exports(plan, feature, demo, locale)
+        if plan["rows"]:
+            render_exports(plan, feature, demo, locale)
     elif kind == "info":
         st.info(content)
     else:
@@ -101,6 +105,7 @@ def main():
     locale = LANGUAGES[st.session_state[DRAFT]["language"]]
     entries = current_entries()
     feature = selection[2]
+    mode = plan_mode(feature, st.session_state[DRAFT]["plan_mode"])
     plan_tab, checkin_tab, preparation_tab, chat_tab, lab_tab = st.tabs(
         ["Plan", "Check-ins", "Match prep", "Coach chat", "Prompt Lab"],
         key="cb_sections", on_change="rerun",
@@ -111,8 +116,15 @@ def main():
             submitted = profile_wizard(demo=not key)
         with output_col, st.container(key="cb_output"):
             st.subheader("Coaching plan")
+            if feature in SUPPORTED:
+                try:
+                    if not load_bank().reviewed:
+                        st.warning("Exercise bank not yet reviewed by a teacher.")
+                except (OSError, ValueError):
+                    st.warning("Exercise bank unavailable. Constrained plans are paused.")
+                st.caption(f"Plan mode · {mode}")
             if submitted is not None:
-                st.session_state.cb_outcome = submit_profile(submitted, feature, locale, entries, key, model)
+                st.session_state.cb_outcome = submit_profile(submitted, feature, locale, entries, key, model, mode=mode)
             show_outcome(st.session_state.get("cb_outcome"), feature, locale, not key,
                          submitted is not None, reduce_motion)
     profile = profile_from_draft()

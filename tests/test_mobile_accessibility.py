@@ -92,7 +92,7 @@ def test_mobile_wizard_and_tab_accessibility(tmp_path):
             assert contrast(colors["text"], colors["bg"]) >= 4.5
 
         focus_order = [wizard.get_by_role("combobox", name=name, exact=True)
-                       for name in ("Sport", "Position", "Coaching module")]
+                       for name in ("Sport", "Position", "Coaching module", "Plan mode")]
         focus_order.append(continue_button)
         focus_order[0].focus()
         for index, target in enumerate(focus_order):
@@ -104,7 +104,8 @@ def test_mobile_wizard_and_tab_accessibility(tmp_path):
                 page.keyboard.press("Tab")
 
         steps = [
-            ("Sport & position", (("combobox", "Sport"), ("combobox", "Position"), ("combobox", "Coaching module"))),
+            ("Sport & position", (("combobox", "Sport"), ("combobox", "Position"),
+                                  ("combobox", "Coaching module"), ("combobox", "Plan mode"))),
             ("Goal & equipment", (("textbox", "Goal or skill"), ("combobox", "Equipment"), ("combobox", "Preferred intensity"))),
             ("Safety check-in", (("spinbutton", "Age"), ("combobox", "Injury status"),
                                   ("textbox", "Clinician instructions or movements to avoid"), ("combobox", "This week"))),

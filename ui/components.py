@@ -162,11 +162,12 @@ def _plan_card(row, index, show_load):
         for key, label in FOOD_GROUPS.items() if isinstance(row.get(key), str) and row[key].strip()
     )
     foods = f'<div class="cb-foods">{foods}</div>' if foods else ""
+    explanation = "Coaching cue" if "exercise_id" in row else "Why this is included"
     return f"""
     <li class="cb-day cb-enter" style="--cb-index:{index}">
       <div class="cb-day-title"><h3>{escape(row["when"])}</h3>{badge}</div>
       {bar}<p>{escape(row["action"])}</p>{foods}
-      <details><summary>Why this is included</summary><p>{escape(row["why"])}</p></details>
+      <details><summary>{explanation}</summary><p>{escape(row["why"])}</p></details>
     </li>
     """
 

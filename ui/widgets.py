@@ -3,6 +3,7 @@
 import streamlit as st
 
 from coach import FEATURES, SPORTS, Profile
+from exercise_bank import CONSTRAINED, PLAN_MODES, SUPPORTED, plan_mode
 from i18n import LANGUAGES
 from ui.components import render_stepper
 
@@ -23,6 +24,7 @@ DEFAULTS = {
     "diet": "Vegetarian",
     "allergies": "",
     "language": "English",
+    "plan_mode": CONSTRAINED,
 }
 
 
@@ -32,6 +34,7 @@ def init_wizard():
         st.session_state.cb_step = 0
         st.session_state.cb_previous_step = 0
     draft = st.session_state[DRAFT]
+    draft.setdefault("plan_mode", CONSTRAINED)
     return draft["sport"], draft["position"], draft["feature"]
 
 
@@ -71,7 +74,9 @@ def profile_wizard(demo):
             _field(st.selectbox, "sport", "Sport", list(SPORTS))
             sport = st.session_state[DRAFT]["sport"]
             _field(st.selectbox, "position", "Position", SPORTS[sport])
-            _field(st.selectbox, "feature", "Coaching module", list(FEATURES))
+            module = _field(st.selectbox, "feature", "Coaching module", list(FEATURES))
+            if module in SUPPORTED:
+                _field(st.selectbox, "plan_mode", "Plan mode", PLAN_MODES)
         elif step == 1:
             _field(st.text_input, "goal", "Goal or skill", max_chars=150, placeholder="Example: improve first touch under pressure")
             _field(st.selectbox, "equipment", "Equipment", ["None", "Ball and cones", "Resistance bands", "School gym"])
@@ -92,6 +97,8 @@ def profile_wizard(demo):
             _field(st.selectbox, "language", "Plan language", list(LANGUAGES))
             if demo:
                 st.caption("Demo data stays in this session. Leave out names and medical records.")
+            elif plan_mode(st.session_state[DRAFT]["feature"], st.session_state[DRAFT]["plan_mode"]) == CONSTRAINED:
+                st.caption("Gemini receives the sport, position, module and eligible activity menu.")
             else:
                 st.caption("Submitted profile fields go to Gemini. Leave out names and medical records.")
 
@@ -107,7 +114,7 @@ def profile_wizard(demo):
 
 
 def profile_from_draft():
-    values = {key: value for key, value in st.session_state[DRAFT].items() if key not in ("feature", "language")}
+    values = {key: value for key, value in st.session_state[DRAFT].items() if key not in ("feature", "language", "plan_mode")}
     values["goal"] = values["goal"].strip() or "Build sport fundamentals"
     values["restrictions"] = values["restrictions"].strip()
     if st.session_state[DRAFT]["feature"] == "No-equipment training":
