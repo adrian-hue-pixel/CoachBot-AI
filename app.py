@@ -1,0 +1,134 @@
+"""Entry point for the public CoachBot AI app."""
+
+import os
+
+import streamlit as st
+
+from coach import DEFAULT_MODEL
+from i18n import LANGUAGES, gate_copy
+from planning import Cooldown, public_gate, run_plan
+from ui.components import render_header, render_plan, render_shield, render_skeleton
+from ui.theme import inject_css
+from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
+                      render_exports, render_preparation, safety_badge)
+from ui.widgets import DRAFT, init_wizard, profile_from_draft, profile_wizard
+
+GENERATION_ERRORS = {
+    400: "The configured model rejected the request. Check model support and settings.",
+    401: "Gemini rejected the API key.",
+    403: "The API key does not have permission to use this model.",
+    404: "The configured model is unavailable to this key. Check GEMINI_MODEL in settings.",
+    429: "The Gemini quota was reached. Try again when quota is available.",
+}
+
+
+def gemini_settings():
+    try:
+        settings = dict(st.secrets)
+    except FileNotFoundError:
+        settings = {}
+    key = settings.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    model = settings.get("GEMINI_MODEL") or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+    return key, model
+
+
+def submit_profile(profile, feature, locale, entries, key, model):
+    status = st.status("Preparing your plan…", expanded=True)
+    status.write("Reading profile")
+    rule = public_gate(profile, feature, entries)
+    status.write("Applying profile safety rules")
+    if rule:
+        if rule != "food_allergies":
+            st.session_state.cb_training_paused = True
+        status.update(label="Plan paused by profile rules", state="complete", expanded=False)
+        return "blocked", rule
+
+    loading = st.empty()
+
+    status.write("Getting coaching draft" if key else "Getting demo example")
+    with loading.container():
+        render_skeleton()
+
+    try:
+        verdict, result, evaluated = run_plan(profile, feature, locale, entries, key, model)
+    except Cooldown:
+        status.update(label="Request cooldown", state="complete", expanded=False)
+        return "info", COOLDOWN_MESSAGE
+    except Exception as error:
+        status.update(label="Plan unavailable", state="error", expanded=False)
+        code = getattr(error, "code", None)
+        return "error", GENERATION_ERRORS.get(code, "CoachBot could not return a complete plan. Please try again.")
+    else:
+        if evaluated:
+            if key and verdict != "passed":
+                status.write("Requested a second draft")
+            status.write(f"Safety check · {VERDICTS[verdict]}")
+        status.update(label="Plan ready to review" if evaluated else "Saved plan ready",
+                      state="complete", expanded=False)
+        return "plan", (verdict, result)
+    finally:
+        loading.empty()
+
+
+def show_outcome(outcome, feature, locale, demo, submitted, reduce_motion):
+    if outcome is None:
+        st.info("Complete the athlete profile to see your coaching plan.")
+        return
+    kind, content = outcome
+    if kind == "blocked":
+        render_shield(*gate_copy(locale, content))
+    elif kind == "plan":
+        verdict, plan = content
+        safety_badge(verdict)
+        render_plan(plan, feature, stream=submitted, reduce_motion=reduce_motion)
+        render_exports(plan, feature, demo, locale)
+    elif kind == "info":
+        st.info(content)
+    else:
+        st.error(content)
+
+
+def main():
+    st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide")
+    inject_css()
+    selection = init_wizard()
+    with st.container(key="cb_settings", horizontal=True, horizontal_alignment="right"):
+        reduce_motion = st.toggle("Reduce motion", key="cb_reduce_motion")
+    render_header(selection[0], selection[1], reduce_motion)
+    key, model = gemini_settings()
+    if not key:
+        st.info("Demo mode · Coaching examples use demo data.")
+    locale = LANGUAGES[st.session_state[DRAFT]["language"]]
+    entries = current_entries()
+    feature = selection[2]
+    plan_tab, checkin_tab, preparation_tab, chat_tab, lab_tab = st.tabs(
+        ["Plan", "Check-ins", "Match prep", "Coach chat", "Prompt Lab"],
+        key="cb_sections", on_change="rerun",
+    )
+    with plan_tab, st.container(key="cb_workbench"):
+        profile_col, output_col = st.columns([1, 1.24], gap="medium")
+        with profile_col, st.container(key="cb_wizard"):
+            submitted = profile_wizard(demo=not key)
+        with output_col, st.container(key="cb_output"):
+            st.subheader("Coaching plan")
+            if submitted is not None:
+                st.session_state.cb_outcome = submit_profile(submitted, feature, locale, entries, key, model)
+            show_outcome(st.session_state.get("cb_outcome"), feature, locale, not key,
+                         submitted is not None, reduce_motion)
+    profile = profile_from_draft()
+    with checkin_tab:
+        render_checkins(profile, locale, reduce_motion)
+    with preparation_tab:
+        render_preparation(reduce_motion)
+    with chat_tab:
+        render_chat(profile, locale, entries, key, model, reduce_motion)
+    if lab_tab.open:
+        from lab import render_lab
+
+        with lab_tab:
+            render_lab(reduce_motion)
+
+
+
+if __name__ == "__main__":
+    main()

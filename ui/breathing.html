@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Pre-match breathing timer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { margin:0; display:grid; justify-items:center; gap:8px; color:#F1F7F4;
+       background:#121D18; font:16px system-ui; border-radius:16px; padding:12px }
+canvas { width:144px; height:144px; }
+p { margin:0;text-align:center }
+button { color:#FFF; background:#087F69; border:0; border-radius:8px; padding:8px 14px; min-height:44px; font:inherit }
+button:focus-visible { outline:2px solid #F5B942; outline-offset:3px }
+</style>
+<body data-reduce-motion="__REDUCE_MOTION__">
+<canvas width="288" height="288" aria-hidden="true"></canvas>
+<p id="phase" role="status">Ready</p>
+<p id="timer" aria-label="Seconds left in this phase">4 s</p>
+<button type="button">Start breathing timer</button>
+<p>Breathe comfortably. Stop if you feel uncomfortable.</p>
+<script>
+const canvas = document.querySelector('canvas');
+const ctx = canvas.getContext('2d');
+const toggle = document.querySelector('button');
+const phaseLabel = document.querySelector('#phase');
+const timerLabel = document.querySelector('#timer');
+const prefersLess = matchMedia('(prefers-reduced-motion: reduce)');
+const motionOff = document.body.dataset.reduceMotion === 'true';
+const phases = ['Breathe in', 'Hold', 'Breathe out', 'Rest'];
+let started = null;
+let frame = null;
+let tick = null;
+function draw(radius) {
+    ctx.clearRect(0, 0, 288, 288);
+    ctx.beginPath();
+    ctx.arc(144, 144, radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#1F5845';
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#83DDB0';
+    ctx.stroke();
+}
+function update(now) {
+    const elapsed = Math.max(0, now - started) % 16000;
+    const phase = Math.floor(elapsed / 4000);
+    const progress = elapsed % 4000 / 4000;
+    if (phaseLabel.textContent !== phases[phase]) phaseLabel.textContent = phases[phase];
+    const remaining = Math.ceil(4 - progress * 4) + ' s';
+    if (timerLabel.textContent !== remaining) timerLabel.textContent = remaining;
+    if (motionOff || prefersLess.matches) draw(80);
+    else draw([54 + 52 * progress, 106, 106 - 52 * progress, 54][phase]);
+}
+function animate(now) {
+    if (started === null) return;
+    update(now);
+    frame = requestAnimationFrame(animate);
+}
+toggle.addEventListener('click', () => {
+    if (started !== null) {
+        cancelAnimationFrame(frame);
+        clearInterval(tick);
+        started = null;
+        phaseLabel.textContent = 'Ready';
+        timerLabel.textContent = '4 s';
+        toggle.textContent = 'Start breathing timer';
+        draw(80);
+        return;
+    }
+    started = performance.now();
+    toggle.textContent = 'Stop breathing timer';
+    update(started);
+    if (motionOff || prefersLess.matches) tick = setInterval(() => update(performance.now()), 200);
+    else frame = requestAnimationFrame(animate);
+});
+draw(80);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+--only-binary=:all:
+streamlit==1.61.0
+google-genai==2.21.0
+numpy==2.5.0
+pandas==3.0.3
+scipy==1.18.0
+plotly==6.9.0
