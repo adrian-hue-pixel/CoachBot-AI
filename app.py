@@ -4,7 +4,7 @@ import os
 
 import streamlit as st
 
-from coach import DEFAULT_MODEL
+from coach import DEFAULT_MODEL, FEATURES, SPORTS
 from exercise_bank import FREE_TEXT, SUPPORTED, load_bank, plan_mode
 from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
@@ -112,34 +112,34 @@ def go_to(page):
 def render_sidebar(key):
     with st.sidebar:
         render_brand()
-        page = st.radio("Menu", tuple(PAGES), key="cb_page", label_visibility="collapsed")
         with st.expander("Appearance"):
             reduce_motion = st.toggle("Reduce motion", key="cb_reduce_motion")
         if not key:
             st.info("Demo mode · Sample responses")
         else:
             st.caption("Live mode · Gemini generation")
-    return page, reduce_motion
+    return reduce_motion
 
 
-def render_home():
-    with st.container(key="cb_home_actions", horizontal=True, horizontal_alignment="center", gap="small"):
-        st.button("Build a plan", type="primary", on_click=go_to, args=("Plan",))
-        st.button("Log a check-in", on_click=go_to, args=("Check-ins",))
-    st.html("""
-    <div class="cb-home-steps">
-        <div><strong>Choose your sport and position</strong><p>Set a goal and tell CoachBot what equipment you have.</p></div>
-        <div><strong>Review your coaching plan</strong><p>Read the weekly activities and discuss them with a coach or trusted adult.</p></div>
-        <div><strong>Check in as you train</strong><p>Record soreness and effort on practice and rest days.</p></div>
-    </div>
-    """)
-    st.subheader("Coaching tools")
-    tools = tuple(PAGES.items())[1:]
-    for start in range(0, len(tools), 3):
-        for column, (page, (icon, description)) in zip(st.columns(3, gap="medium"), tools[start:start + 3]):
-            with column, st.container(key=f"cb_tool_{icon}"):
-                render_tool_card(page, icon, description)
-                st.button("Open ›", key=f"cb_open_{icon}", on_click=go_to, args=(page,), help=f"Open {page}")
+def render_home(sport, position, reduce_motion):
+    with st.container(key="cb_home_hero"):
+        render_header(sport, position, reduce_motion)
+        with st.container(key="cb_home_actions", horizontal=True, gap="small"):
+            st.button("Build a plan", type="primary", on_click=go_to, args=("Plan",))
+            st.button("Log a check-in", on_click=go_to, args=("Check-ins",))
+    stats = ((len(SPORTS), "Sports"), (sum(map(len, SPORTS.values())), "Positions"),
+             (len(FEATURES), "Coaching modules"), (len(LANGUAGES), "Plan languages"))
+    st.html('<dl class="cb-home-stats">' + "".join(
+        f"<div><dt>{label}</dt><dd>{count}</dd></div>" for count, label in stats
+    ) + "</dl>")
+    with st.container(key="cb_home_tools"):
+        st.subheader("Coaching tools")
+        tools = tuple(PAGES.items())[1:]
+        for start in range(0, len(tools), 3):
+            for column, (page, (icon, description)) in zip(st.columns(3, gap="medium"), tools[start:start + 3]):
+                with column, st.container(key=f"cb_tool_{icon}"):
+                    render_tool_card(page, icon, description)
+                    st.button("Open ›", key=f"cb_open_{icon}", on_click=go_to, args=(page,), help=f"Open {page}")
 
 
 def render_plan_page(feature, locale, entries, key, model, reduce_motion):
@@ -167,18 +167,21 @@ def render_plan_page(feature, locale, entries, key, model, reduce_motion):
 
 
 def main():
-    st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide")
+    st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide", initial_sidebar_state="collapsed")
     inject_css()
     sport, position, feature = init_wizard()
     key, model = gemini_settings()
-    page, reduce_motion = render_sidebar(key)
+    reduce_motion = render_sidebar(key)
+    with st.container(key="cb_navigation"):
+        page = st.radio("Menu", tuple(PAGES), key="cb_page", horizontal=True, label_visibility="collapsed")
+    if page == "Home":
+        render_home(sport, position, reduce_motion)
+        return
     icon, description = PAGES[page]
     render_header(sport, position, reduce_motion, page, icon, description)
     locale = LANGUAGES[st.session_state[DRAFT]["language"]]
     entries = current_entries()
-    if page == "Home":
-        render_home()
-    elif page == "Plan":
+    if page == "Plan":
         render_plan_page(feature, locale, entries, key, model, reduce_motion)
     elif page == "Check-ins":
         with st.container(key="cb_checkins_panel"):

@@ -102,7 +102,7 @@ COMPUTED_COLORS = r"""
 
 
 @pytest.mark.skipif(os.getenv("COACHBOT_BROWSER_TEST") != "1", reason="browser test runs in the Python 3.12 CI job")
-def test_mobile_wizard_and_sidebar_accessibility(tmp_path):
+def test_mobile_wizard_and_navigation_accessibility(tmp_path):
     from playwright.sync_api import expect, sync_playwright
 
     with server(tmp_path, "app.py") as url, sync_playwright() as playwright:
@@ -112,12 +112,16 @@ def test_mobile_wizard_and_sidebar_accessibility(tmp_path):
         expect(page.get_by_role("heading", name="Training plans for the way you play.")).to_be_visible()
         assert page.evaluate("innerWidth") == 360
 
-        expect(page.get_by_role("img", name="Illustrative football position map for Striker")).to_be_visible()
+        pitch = page.locator(".cb-hero-pitch")
+        expect(pitch).to_be_visible()
+        expect(pitch).to_have_js_property("complete", True)
+        assert pitch.evaluate("(image) => image.naturalWidth") > 0
         for target in (page.locator(".cb-hero-note"), page.locator(".cb-hero-accent")):
             colors = target.evaluate(COMPUTED_COLORS)
             assert contrast(colors["text"], colors["bg"]) >= 4.5
         assert not (problems := page.evaluate(OVERFLOW)), problems
         page.get_by_role("button", name="Build a plan").click()
+        expect(page.get_by_role("img", name="Illustrative football position map for Striker")).to_be_visible()
         wizard = page.locator(".st-key-cb_wizard")
         continue_button = wizard.get_by_role("button", name="Continue")
         expect(continue_button).to_be_visible()
@@ -162,15 +166,9 @@ def test_mobile_wizard_and_sidebar_accessibility(tmp_path):
             ("Check-ins", "Daily check-ins"), ("Match prep", "Hydration planner"),
             ("Coach chat", "Coach chat"), ("Prompt Lab", "Prompt Lab"), ("Plan", "Athlete profile"),
         ):
-            expand = page.get_by_test_id("stExpandSidebarButton")
-            if expand.is_visible():
-                expand.click()
-            sidebar = page.get_by_test_id("stSidebar")
-            sidebar.get_by_text(destination, exact=True).click()
-            expect(sidebar.get_by_role("radio", name=destination, exact=True)).to_be_checked()
-            collapse = sidebar.get_by_test_id("stSidebarCollapseButton").get_by_role("button")
-            if collapse.is_visible():
-                collapse.click()
+            navigation = page.get_by_role("radiogroup", name="Menu")
+            navigation.get_by_text(destination, exact=True).click()
+            expect(navigation.get_by_role("radio", name=destination, exact=True)).to_be_checked()
             main = page.get_by_test_id("stMain")
             expect(main.get_by_role("heading", name=heading, exact=True, level=3)).to_be_visible()
             assert not (problems := page.evaluate(OVERFLOW)), (destination, problems)

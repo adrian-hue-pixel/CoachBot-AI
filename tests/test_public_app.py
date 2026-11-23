@@ -29,7 +29,7 @@ def click(app, label):
 
 
 def navigate(app, page):
-    return app.sidebar.radio(key="cb_page").set_value(page).run()
+    return app.radio(key="cb_page").set_value(page).run()
 
 
 def open_plan(app):
@@ -47,9 +47,9 @@ def test_no_key_startup_and_submission(app, monkeypatch):
     monkeypatch.setattr(coach, "generate", generate)
     app.run()
     assert '<h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>' in markup(app)
-    assert app.sidebar.radio(key="cb_page").value == "Home"
+    assert app.radio(key="cb_page").value == "Home"
     click(app, "Build a plan")
-    assert app.sidebar.radio(key="cb_page").value == "Plan"
+    assert app.radio(key="cb_page").value == "Plan"
     assert tuple(app.selectbox[2].options) == tuple(coach.FEATURES)
     for _ in range(3):
         click(app, "Continue")

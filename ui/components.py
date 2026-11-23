@@ -1,6 +1,9 @@
 """Accessible hero, wizard progress, and coaching plan displays."""
 
+from base64 import b64encode
+from functools import cache
 from html import escape
+from pathlib import Path
 import re
 from string import punctuation
 from time import sleep
@@ -25,42 +28,48 @@ def render_brand():
     st.html('<div class="cb-brand"><span aria-hidden="true">🏅</span><strong>CoachBot AI</strong></div>')
 
 
+@cache
+def _pitch_image():
+    asset = Path(__file__).with_name("assets") / "pitch.webp"
+    return b64encode(asset.read_bytes()).decode("ascii")
+
+
 def render_header(sport, position, reduce_motion, page="Home", icon="home", description=""):
     motion = "reduced" if reduce_motion else "full"
-    illustration = f"""
-        <figure class="cb-field">
-            {field_svg(sport, position)}
-            <figcaption><span>{escape(sport)}</span><strong>{escape(position)}</strong></figcaption>
-        </figure>
-    """
     attributes = f'data-cb-sport="{SPORT_STYLES[sport]}" data-cb-motion="{motion}"'
     if page == "Home":
-        header = f"""
+        st.html(f"""
         <section class="cb-hero" {attributes}>
-            {illustration}
-            <div class="cb-hero-copy">
-                <span class="cb-eyebrow">CoachBot AI</span>
-                <h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>
-                <p class="cb-hero-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
+            <img class="cb-hero-pitch" alt="" src="data:image/webp;base64,{_pitch_image()}">
+            <div class="cb-hero-meta">
+                <span class="cb-eyebrow"><span aria-hidden="true">🏅</span> CoachBot AI</span>
                 <ul class="cb-chips" aria-label="Supported sports">
                     <li>Football</li><li>Cricket</li><li>Basketball</li>
                 </ul>
             </div>
-        </section>
-        """
-    else:
-        header = f"""
-        <header class="cb-pagehead" {attributes}>
-            <div class="cb-page-title">
-                <span class="cb-icon material-symbols-rounded" aria-hidden="true">{escape(icon)}</span>
-                <div><span class="cb-eyebrow">CoachBot AI</span>
-                    <h1>{escape(page)}</h1><p>{escape(description)}</p>
-                    <p class="cb-page-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
-                </div>
+            <div class="cb-hero-copy">
+                <h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>
+                <p class="cb-hero-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
             </div>
-            {illustration}
-        </header>
-        """
+        </section>
+        """)
+        return
+
+    header = f"""
+    <header class="cb-pagehead" {attributes}>
+        <div class="cb-page-title">
+            <span class="cb-icon material-symbols-rounded" aria-hidden="true">{escape(icon)}</span>
+            <div><span class="cb-eyebrow">CoachBot AI</span>
+                <h1>{escape(page)}</h1><p>{escape(description)}</p>
+                <p class="cb-page-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
+            </div>
+        </div>
+        <figure class="cb-field">
+            {field_svg(sport, position)}
+            <figcaption><span>{escape(sport)}</span><strong>{escape(position)}</strong></figcaption>
+        </figure>
+    </header>
+    """
     # The HTML widget strips SVG; this markup uses escaped labels and fixed SVG paths.
     st.markdown(" ".join(header.split()), unsafe_allow_html=True)
 

@@ -63,7 +63,7 @@ def test_app_exposes_prompt_lab_with_no_configured_key_or_runs(monkeypatch, tmp_
     app.secrets["GEMINI_API_KEY"] = ""
     app.run()
     assert not app.exception
-    navigation = app.sidebar.radio(key="cb_page")
+    navigation = app.radio(key="cb_page")
     assert "Prompt Lab" in navigation.options
     assert all(item.value != "Prompt Lab" for item in app.subheader)
     navigation.set_value("Prompt Lab").run()
