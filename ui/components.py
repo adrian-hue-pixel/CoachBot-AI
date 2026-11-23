@@ -117,10 +117,7 @@ def render_skeleton():
 def render_shield(title, rule_label, reason):
     st.html(f"""
     <section class="cb-shield cb-enter" role="alert">
-      <svg viewBox="0 0 48 48" role="img" aria-label="Safety shield">
-        <path class="cb-shield-outline" pathLength="100" d="M24 4 42 11v11c0 10-8 17-18 22C14 39 6 32 6 22V11z"/>
-        <path d="M24 15v10m0 6v1"/>
-      </svg>
+      <span class="cb-icon material-symbols-rounded" role="img" aria-label="Safety shield">shield</span>
       <div><h3>{escape(title)}</h3><p><strong>{escape(rule_label)}</strong></p><p>{escape(reason)}</p></div>
     </section>
     """)

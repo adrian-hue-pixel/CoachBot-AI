@@ -4,6 +4,8 @@ CoachBot AI is a Streamlit assistant for young football, cricket and basketball 
 
 [Open the live CoachBot AI demo](https://coachbot-ai.streamlit.app/) · [Run locally](#run-locally) · [Research and evaluation](#research-question)
 
+[Assessment evidence and reproducible demo simulations](docs/assessment-evidence.md)
+
 ![CoachBot AI Plan page with the athlete profile, plan preview and running-track backdrop](docs/screenshots/plan-workspace.webp)
 
 ## Try CoachBot

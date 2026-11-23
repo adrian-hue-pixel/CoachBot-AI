@@ -855,8 +855,14 @@
     background: #392622;
     color: var(--cb-ink);
 }
-.cb-shield svg { width: 40px; height: 40px; fill: none; stroke: #FFD0CA; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.cb-shield-outline { stroke-dasharray: 100; animation: cb-ring-draw 500ms ease-out both; }
+.cb-shield .cb-icon {
+    width: 40px;
+    height: 40px;
+    color: #FFD0CA;
+    background: #57332C;
+    box-shadow: none;
+}
+.cb-shield > div { grid-column: 2; }
 .cb-shield h3 { margin: 0; padding: 0; font-size: 1.12rem; }
 .cb-shield p { margin: 4px 0 0; }
 
