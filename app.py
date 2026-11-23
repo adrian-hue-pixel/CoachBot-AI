@@ -10,6 +10,7 @@ from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
 from ui.components import (render_brand, render_header, render_plan, render_plan_preview, render_shield,
                            render_skeleton, render_tool_card)
+from ui.home import render_home_hero
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
                       render_exports, render_preparation, safety_badge)
@@ -121,9 +122,9 @@ def render_sidebar(key):
     return reduce_motion
 
 
-def render_home(sport, position, reduce_motion):
+def render_home(sport, reduce_motion):
     with st.container(key="cb_home_hero"):
-        render_header(sport, position, reduce_motion)
+        render_home_hero(sport, reduce_motion)
         with st.container(key="cb_home_actions", horizontal=True, gap="small"):
             st.button("Build a plan", type="primary", on_click=go_to, args=("Plan",))
             st.button("Log a check-in", on_click=go_to, args=("Check-ins",))
@@ -175,7 +176,7 @@ def main():
     with st.container(key="cb_navigation"):
         page = st.radio("Menu", tuple(PAGES), key="cb_page", horizontal=True, label_visibility="collapsed")
     if page == "Home":
-        render_home(sport, position, reduce_motion)
+        render_home(sport, reduce_motion)
         return
     icon, description = PAGES[page]
     render_header(sport, position, reduce_motion, page, icon, description)
