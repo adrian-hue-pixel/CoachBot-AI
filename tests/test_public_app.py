@@ -28,15 +28,28 @@ def click(app, label):
     return next(button for button in app.button if button.label == label).click().run()
 
 
+def navigate(app, page):
+    return app.sidebar.radio(key="cb_page").set_value(page).run()
+
+
+def open_plan(app):
+    app.run()
+    click(app, "Build a plan")
+
+
 def markup(app):
-    return "\n".join(element.proto.body for element in app.get("html"))
+    return "\n".join([*(element.proto.body for element in app.get("html")),
+                      *(element.value for element in app.markdown if 'data-cb-sport=' in element.value)])
 
 
 def test_no_key_startup_and_submission(app, monkeypatch):
     generate = Mock()
     monkeypatch.setattr(coach, "generate", generate)
     app.run()
-    assert "<h1>CoachBot <span>AI</span></h1>" in markup(app)
+    assert '<h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>' in markup(app)
+    assert app.sidebar.radio(key="cb_page").value == "Home"
+    click(app, "Build a plan")
+    assert app.sidebar.radio(key="cb_page").value == "Plan"
     assert tuple(app.selectbox[2].options) == tuple(coach.FEATURES)
     for _ in range(3):
         click(app, "Continue")
@@ -55,7 +68,7 @@ def test_public_gate_blocks_even_with_a_key(app, monkeypatch):
     generate = Mock()
     monkeypatch.setattr(coach, "generate", generate)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     click(app, "Continue")
     click(app, "Continue")
     app.checkbox[0].check().run()
@@ -86,7 +99,7 @@ def test_successful_plan_and_nutrition_chart(app, monkeypatch):
     generate = Mock(return_value=result)
     monkeypatch.setattr(coach, "generate", generate)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     app.selectbox[2].select("Weekly nutrition ideas").run()
     for _ in range(3):
         click(app, "Continue")
@@ -139,7 +152,7 @@ def test_wizard_preserves_answers_and_updates_illustration(app, monkeypatch):
     })
     monkeypatch.setattr(coach, "generate", generate)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     app.selectbox[0].select("Basketball").run()
     app.selectbox[1].select("Forward").run()
     app.selectbox[2].select("No-equipment training").run()
@@ -149,6 +162,11 @@ def test_wizard_preserves_answers_and_updates_illustration(app, monkeypatch):
     click(app, "Continue")
     app.text_input[0].set_value("  Review court spacing  ").run()
     app.selectbox[0].select("School gym").run()
+    navigate(app, "Check-ins")
+    assert 'aria-label="0 of 7 weekly check-ins complete"' in markup(app)
+    navigate(app, "Plan")
+    assert app.text_input[0].value == "  Review court spacing  "
+    assert app.selectbox[0].value == "School gym"
     app.selectbox[1].select("Moderate").run()
     click(app, "Continue")
     app.number_input[0].set_value(16).run()
@@ -160,7 +178,6 @@ def test_wizard_preserves_answers_and_updates_illustration(app, monkeypatch):
     assert app.number_input[0].value == 16
     assert app.text_input[0].value == "  Avoid jumping  "
     click(app, "Continue")
-    assert 'aria-label="0 of 7 weekly check-ins complete"' in markup(app)
     app.selectbox[0].select("Vegan").run()
     click(app, "Generate coaching plan")
     assert not app.exception
@@ -180,7 +197,7 @@ def test_optional_load_and_model_text_are_rendered_as_safe_html(app, monkeypatch
     })
     monkeypatch.setattr(coach, "generate", generate)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     next(item for item in app.selectbox if item.label == "Plan mode").select("Free-text V3").run()
     for _ in range(3):
         click(app, "Continue")

@@ -63,10 +63,10 @@ def test_app_exposes_prompt_lab_with_no_configured_key_or_runs(monkeypatch, tmp_
     app.secrets["GEMINI_API_KEY"] = ""
     app.run()
     assert not app.exception
-    assert any(tab.label == "Prompt Lab" for tab in app.tabs)
+    navigation = app.sidebar.radio(key="cb_page")
+    assert "Prompt Lab" in navigation.options
     assert all(item.value != "Prompt Lab" for item in app.subheader)
-    app.session_state["cb_sections"] = "Prompt Lab"
-    app.run()
+    navigation.set_value("Prompt Lab").run()
     assert not app.exception
     assert any("No evaluation run found" in item.value for item in app.info)
     assert any(item.label == "Limitations" for item in app.expander)

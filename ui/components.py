@@ -21,21 +21,54 @@ FOOD_GROUPS = {"carbs": "Carbs", "protein": "Protein", "fats": "Fats"}
 MARKDOWN_LITERAL = str.maketrans({char: f"&#{ord(char)};" for char in punctuation})
 
 
-def render_header(sport, position, reduce_motion):
+def render_brand():
+    st.html('<div class="cb-brand"><span aria-hidden="true">🏅</span><strong>CoachBot AI</strong></div>')
+
+
+def render_header(sport, position, reduce_motion, page="Home", icon="home", description=""):
     motion = "reduced" if reduce_motion else "full"
-    st.html(f"""
-    <section class="cb-hero" data-cb-sport="{SPORT_STYLES[sport]}" data-cb-motion="{motion}">
-        <div class="cb-mesh" aria-hidden="true"><i></i><i></i><i></i></div>
-        <div class="cb-hero-copy">
-            <h1>CoachBot <span>AI</span></h1>
-            <p class="cb-hero-lead">Training plans for the way you play.</p>
-            <p class="cb-hero-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
-        </div>
+    illustration = f"""
         <figure class="cb-field">
             {field_svg(sport, position)}
             <figcaption><span>{escape(sport)}</span><strong>{escape(position)}</strong></figcaption>
         </figure>
-    </section>
+    """
+    attributes = f'data-cb-sport="{SPORT_STYLES[sport]}" data-cb-motion="{motion}"'
+    if page == "Home":
+        header = f"""
+        <section class="cb-hero" {attributes}>
+            {illustration}
+            <div class="cb-hero-copy">
+                <span class="cb-eyebrow">CoachBot AI</span>
+                <h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>
+                <p class="cb-hero-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
+                <ul class="cb-chips" aria-label="Supported sports">
+                    <li>Football</li><li>Cricket</li><li>Basketball</li>
+                </ul>
+            </div>
+        </section>
+        """
+    else:
+        header = f"""
+        <header class="cb-pagehead" {attributes}>
+            <div class="cb-page-title">
+                <span class="cb-icon material-symbols-rounded" aria-hidden="true">{escape(icon)}</span>
+                <div><span class="cb-eyebrow">CoachBot AI</span>
+                    <h1>{escape(page)}</h1><p>{escape(description)}</p>
+                    <p class="cb-page-note">Review your plan with a coach or trusted adult. For pain or injury, ask a clinician.</p>
+                </div>
+            </div>
+            {illustration}
+        </header>
+        """
+    # The HTML widget strips SVG; this markup uses escaped labels and fixed SVG paths.
+    st.markdown(" ".join(header.split()), unsafe_allow_html=True)
+
+
+def render_tool_card(title, icon, description):
+    st.html(f"""
+        <span class="cb-icon material-symbols-rounded" aria-hidden="true">{escape(icon)}</span>
+        <h3>{escape(title)}</h3><p>{escape(description)}</p>
     """)
 
 

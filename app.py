@@ -8,7 +8,8 @@ from coach import DEFAULT_MODEL
 from exercise_bank import FREE_TEXT, SUPPORTED, load_bank, plan_mode
 from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
-from ui.components import render_header, render_plan, render_plan_preview, render_shield, render_skeleton
+from ui.components import (render_brand, render_header, render_plan, render_plan_preview, render_shield,
+                           render_skeleton, render_tool_card)
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
                       render_exports, render_preparation, safety_badge)
@@ -20,6 +21,14 @@ GENERATION_ERRORS = {
     403: "The API key does not have permission to use this model.",
     404: "The configured model is unavailable to this key. Check GEMINI_MODEL in settings.",
     429: "The Gemini quota was reached. Try again when quota is available.",
+}
+PAGES = {
+    "Home": ("home", ""),
+    "Plan": ("assignment", "Build a coaching plan around your sport, position, and goals."),
+    "Check-ins": ("event_available", "Track soreness and effort on practice and rest days."),
+    "Match prep": ("timer", "Set water reminders and practise pre-match breathing."),
+    "Coach chat": ("chat_bubble_outline", "Ask about decisions and match preparation for your sport."),
+    "Prompt Lab": ("science", "Explore the prompt comparisons and safety evaluation."),
 }
 
 
@@ -96,28 +105,47 @@ def show_outcome(outcome, profile, feature, locale, demo, submitted, reduce_moti
         st.error(content)
 
 
-def main():
-    st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide")
-    inject_css()
-    selection = init_wizard()
-    key, model = gemini_settings()
-    with st.container(key="cb_settings", horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
+def go_to(page):
+    st.session_state.cb_page = page
+
+
+def render_sidebar(key):
+    with st.sidebar:
+        render_brand()
+        page = st.radio("Menu", tuple(PAGES), key="cb_page", label_visibility="collapsed")
+        with st.expander("Appearance"):
+            reduce_motion = st.toggle("Reduce motion", key="cb_reduce_motion")
         if not key:
             st.info("Demo mode · Sample responses")
         else:
             st.caption("Live mode · Gemini generation")
-        reduce_motion = st.toggle("Reduce motion", key="cb_reduce_motion")
-    render_header(selection[0], selection[1], reduce_motion)
-    locale = LANGUAGES[st.session_state[DRAFT]["language"]]
-    entries = current_entries()
-    feature = selection[2]
+    return page, reduce_motion
+
+
+def render_home():
+    with st.container(key="cb_home_actions", horizontal=True, horizontal_alignment="center", gap="small"):
+        st.button("Build a plan", type="primary", on_click=go_to, args=("Plan",))
+        st.button("Log a check-in", on_click=go_to, args=("Check-ins",))
+    st.html("""
+    <div class="cb-home-steps">
+        <div><strong>Choose your sport and position</strong><p>Set a goal and tell CoachBot what equipment you have.</p></div>
+        <div><strong>Review your coaching plan</strong><p>Read the weekly activities and discuss them with a coach or trusted adult.</p></div>
+        <div><strong>Check in as you train</strong><p>Record soreness and effort on practice and rest days.</p></div>
+    </div>
+    """)
+    st.subheader("Coaching tools")
+    tools = tuple(PAGES.items())[1:]
+    for start in range(0, len(tools), 3):
+        for column, (page, (icon, description)) in zip(st.columns(3, gap="medium"), tools[start:start + 3]):
+            with column, st.container(key=f"cb_tool_{icon}"):
+                render_tool_card(page, icon, description)
+                st.button("Open ›", key=f"cb_open_{icon}", on_click=go_to, args=(page,), help=f"Open {page}")
+
+
+def render_plan_page(feature, locale, entries, key, model, reduce_motion):
     mode = plan_mode(feature, st.session_state[DRAFT]["plan_mode"])
-    plan_tab, checkin_tab, preparation_tab, chat_tab, lab_tab = st.tabs(
-        ["Plan", "Check-ins", "Match prep", "Coach chat", "Prompt Lab"],
-        key="cb_sections", on_change="rerun",
-    )
-    with plan_tab, st.container(key="cb_workbench"):
-        profile_col, output_col = st.columns([1, 1.14], gap="medium")
+    with st.container(key="cb_workbench"):
+        profile_col, output_col = st.columns([1.8, 1], gap="large")
         with profile_col, st.container(key="cb_wizard"):
             submitted = profile_wizard(demo=not key)
         with output_col, st.container(key="cb_output"):
@@ -136,20 +164,35 @@ def main():
                 )
             show_outcome(st.session_state.get("cb_outcome"), profile_from_draft(), feature, locale, not key,
                          submitted is not None, reduce_motion)
-    profile = profile_from_draft()
-    with checkin_tab, st.container(key="cb_checkins_panel"):
-        render_checkins(profile, locale, reduce_motion)
-    with preparation_tab, st.container(key="cb_preparation_panel"):
-        render_preparation(reduce_motion)
-    with chat_tab, st.container(key="cb_chat_panel"):
-        render_chat(profile, locale, entries, key, model, reduce_motion)
-    if lab_tab.open:
+
+
+def main():
+    st.set_page_config(page_title="CoachBot AI", page_icon="🏅", layout="wide")
+    inject_css()
+    sport, position, feature = init_wizard()
+    key, model = gemini_settings()
+    page, reduce_motion = render_sidebar(key)
+    icon, description = PAGES[page]
+    render_header(sport, position, reduce_motion, page, icon, description)
+    locale = LANGUAGES[st.session_state[DRAFT]["language"]]
+    entries = current_entries()
+    if page == "Home":
+        render_home()
+    elif page == "Plan":
+        render_plan_page(feature, locale, entries, key, model, reduce_motion)
+    elif page == "Check-ins":
+        with st.container(key="cb_checkins_panel"):
+            render_checkins(profile_from_draft(), locale, reduce_motion)
+    elif page == "Match prep":
+        with st.container(key="cb_preparation_panel"):
+            render_preparation(reduce_motion)
+    elif page == "Coach chat":
+        with st.container(key="cb_chat_panel"):
+            render_chat(profile_from_draft(), locale, entries, key, model, reduce_motion)
+    else:
         from lab import render_lab
 
-        with lab_tab:
-            render_lab(reduce_motion)
-
-
+        render_lab(reduce_motion)
 
 if __name__ == "__main__":
     main()

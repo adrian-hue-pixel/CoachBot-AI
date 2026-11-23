@@ -6,7 +6,7 @@ import pytest
 import coach
 import planning
 from exercise_bank import CUES
-from test_public_app import app, click, markup
+from test_public_app import app, click, markup, open_plan
 from verifier import Verification, verify_text
 
 
@@ -36,7 +36,7 @@ def test_verifier_sends_a_json_data_packet_and_only_accepts_fixed_categories(mon
 
 def _open_optional_review(app):
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     click(app, "Continue")
     app.text_input[0].set_value("PRIVATE test marker").run()
     click(app, "Continue")

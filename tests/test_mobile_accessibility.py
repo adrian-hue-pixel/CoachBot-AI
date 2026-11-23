@@ -39,7 +39,8 @@ def _capture_evidence(browser, url, mobile):
     desktop = browser.new_page(viewport={"width": 1440, "height": 1000}, reduced_motion="reduce")
     try:
         desktop.goto(url)
-        expect(desktop.get_by_role("heading", name="CoachBot AI")).to_be_visible()
+        desktop.get_by_role("button", name="Build a plan").click()
+        expect(desktop.get_by_role("heading", name="Athlete profile")).to_be_visible()
         desktop.screenshot(path=target / "desktop-wizard.png", animations="disabled")
         wizard = desktop.locator(".st-key-cb_wizard")
         for _ in range(3):
@@ -101,21 +102,27 @@ COMPUTED_COLORS = r"""
 
 
 @pytest.mark.skipif(os.getenv("COACHBOT_BROWSER_TEST") != "1", reason="browser test runs in the Python 3.12 CI job")
-def test_mobile_wizard_and_tab_accessibility(tmp_path):
+def test_mobile_wizard_and_sidebar_accessibility(tmp_path):
     from playwright.sync_api import expect, sync_playwright
 
     with server(tmp_path, "app.py") as url, sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page(viewport={"width": 360, "height": 800}, reduced_motion="reduce")
         page.goto(url)
-        expect(page.get_by_role("heading", name="CoachBot AI")).to_be_visible()
+        expect(page.get_by_role("heading", name="Training plans for the way you play.")).to_be_visible()
         assert page.evaluate("innerWidth") == 360
-        wizard = page.locator(".st-key-cb_wizard")
-        continue_button = wizard.get_by_role("button", name="Continue")
 
-        for target in (page.locator(".cb-hero-note"), page.locator(".cb-hero h1 span"), continue_button):
+        expect(page.get_by_role("img", name="Illustrative football position map for Striker")).to_be_visible()
+        for target in (page.locator(".cb-hero-note"), page.locator(".cb-hero-accent")):
             colors = target.evaluate(COMPUTED_COLORS)
             assert contrast(colors["text"], colors["bg"]) >= 4.5
+        assert not (problems := page.evaluate(OVERFLOW)), problems
+        page.get_by_role("button", name="Build a plan").click()
+        wizard = page.locator(".st-key-cb_wizard")
+        continue_button = wizard.get_by_role("button", name="Continue")
+        expect(continue_button).to_be_visible()
+        colors = continue_button.evaluate(COMPUTED_COLORS)
+        assert contrast(colors["text"], colors["bg"]) >= 4.5
 
         focus_order = [wizard.get_by_role("combobox", name=name, exact=True)
                        for name in ("Sport", "Position", "Coaching module", "Plan mode")]
@@ -151,13 +158,20 @@ def test_mobile_wizard_and_tab_accessibility(tmp_path):
         assert not (problems := page.evaluate(OVERFLOW)), problems
         _capture_evidence(browser, url, page)
 
-        for tab_name, heading in (
+        for destination, heading in (
             ("Check-ins", "Daily check-ins"), ("Match prep", "Hydration planner"),
             ("Coach chat", "Coach chat"), ("Prompt Lab", "Prompt Lab"), ("Plan", "Athlete profile"),
         ):
-            tab = page.get_by_role("tab", name=tab_name, exact=True)
-            tab.click()
-            expect(tab).to_have_attribute("aria-selected", "true")
-            expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
-            assert not (problems := page.evaluate(OVERFLOW)), (tab_name, problems)
+            expand = page.get_by_test_id("stExpandSidebarButton")
+            if expand.is_visible():
+                expand.click()
+            sidebar = page.get_by_test_id("stSidebar")
+            sidebar.get_by_text(destination, exact=True).click()
+            expect(sidebar.get_by_role("radio", name=destination, exact=True)).to_be_checked()
+            collapse = sidebar.get_by_test_id("stSidebarCollapseButton").get_by_role("button")
+            if collapse.is_visible():
+                collapse.click()
+            main = page.get_by_test_id("stMain")
+            expect(main.get_by_role("heading", name=heading, exact=True, level=3)).to_be_visible()
+            assert not (problems := page.evaluate(OVERFLOW)), (destination, problems)
         browser.close()

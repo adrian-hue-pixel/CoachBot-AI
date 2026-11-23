@@ -3,11 +3,11 @@ from unittest.mock import Mock
 import coach
 from exercise_bank import CUES
 
-from test_public_app import app, click, markup
+from test_public_app import app, click, markup, navigate, open_plan
 
 
 def _go_to_final_step(app):
-    app.run()
+    open_plan(app)
     assert next(item for item in app.selectbox if item.label == "Plan mode").value == "Constrained"
     for _ in range(3):
         click(app, "Continue")
@@ -36,7 +36,7 @@ def test_live_constrained_request_filters_known_exercises_and_keeps_profile_text
     send = Mock(return_value={"rows": [row("small_hops"), row("inside_pass"), row("easy_walk"), row("rest_break")]})
     monkeypatch.setattr(coach, "generate", send)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
-    app.run()
+    open_plan(app)
     click(app, "Continue")
     app.text_input[0].set_value("SENTINEL profile note").run()
     click(app, "Continue")
@@ -73,8 +73,10 @@ def test_constrained_live_sends_only_rest_choices_after_checkin_reduces_workload
     monkeypatch.setattr(coach, "generate", send)
     app.secrets["GEMINI_API_KEY"] = "offline-test"
     app.run()
+    navigate(app, "Check-ins")
     next(item for item in app.slider if item.label == "Soreness").set_value(3)
     click(app, "Save check-in")
+    navigate(app, "Plan")
     click(app, "Continue")
     next(item for item in app.selectbox if item.label == "Preferred intensity").select("Moderate").run()
     click(app, "Continue")
