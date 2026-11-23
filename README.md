@@ -2,6 +2,18 @@
 
 CoachBot AI is a Streamlit assistant for young football, cricket and basketball players. It uses a position, training goal, available equipment and check-in to generate coaching ideas that an athlete can review with a coach or trusted adult.
 
+[Open the live CoachBot AI demo](https://coachbot-ai.streamlit.app/) · [Run locally](#run-locally) · [Research and evaluation](#research-question)
+
+![CoachBot AI Plan page with the athlete profile, plan preview and running-track backdrop](docs/screenshots/plan-workspace.webp)
+
+## Try CoachBot
+
+1. On **Home**, select **Build a plan**. Pick a sport, position and coaching module, then complete the athlete profile. The public demo uses sample results.
+2. Open **Check-ins** to log soreness and effort, or use **Match prep** for the breathing timer and hydration reminders.
+3. Use **Coach chat** after completing the athlete safety step. Open **Prompt Lab** to explore the assessment's evaluation and benchmark tools.
+
+The demo covers **3 sports, 12 positions and 11 coaching modules**. Plan output is available in **English, Tamil and Hindi**. To pause the animated backgrounds and transitions, open the sidebar, expand **Appearance**, and enable **Reduce motion**. The interface also respects your device’s reduced-motion setting.
+
 ## Features
 
 | Area | What it does |
@@ -204,7 +216,7 @@ The browser test in `tests/test_summary_dom.py` uses a 360px Chromium viewport a
 
 For a manual check, open the demo and inspect the summary in the browser accessibility tree or with a screen reader. Start a plan with motion enabled, then confirm the summary appears once as it streams and once after the static paragraph replaces it. Enable **Reduce motion**, generate again, and confirm the full summary appears once, immediately. The slower stream in `tests/summary_probe.py` makes the intermediate frame easier to inspect.
 
-The browser checks also exercise each wizard step and all five tabs at 360px. They check page reflow, field names, the first step’s keyboard order, visible focus and representative text contrast. The static palette test checks the dark theme's main text, accent and status combinations independently.
+The browser checks also exercise each wizard step and all five tool pages at 360px. They check page reflow, field names, the first step’s keyboard order, visible focus and representative text contrast. The static palette test checks the dark theme's main text, accent and status combinations independently.
 
 To run both browser tests locally:
 
@@ -213,7 +225,7 @@ python -m playwright install chromium
 COACHBOT_BROWSER_TEST=1 python -m pytest -q -W error tests/test_summary_dom.py tests/test_mobile_accessibility.py
 ```
 
-The static dark palette checks passed locally. The workspace blocked a local Streamlit connection, so the 360px Chromium run and manual accessibility-tree or screen-reader inspection remain unverified here. These checks cover selected criteria; they are not a full WCAG audit.
+The 360px Chromium checks cover the wizard, navigation and summary behavior with motion enabled and reduced. Manual screen-reader verification is tracked separately.
 
 Accessibility references · [Focus order](https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html) and [minimum contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
 
@@ -318,13 +330,15 @@ Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. S
 | Reproducibility and study planning | [Evaluation wrapper](run_evaluation.py) and [Prompt Lab workflow](#prompt-lab-workflow) | Per-model manifests, approximate power analysis and independent side-by-side views. |
 | Validated responses after simulation | [Evaluation](#evaluation) and [Prompt Lab workflow](#prompt-lab-workflow) | Evaluation workflow ready. Add human-scored model results and teacher feedback. |
 | API key generation and overall execution evidence | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture real screenshots with every credential hidden. |
-| README demonstration screenshots | [Screenshot placeholders](#demo-screenshots-and-evidence) | Capture the deployed app on desktop and mobile. |
-| Public Streamlit deployment | [Live demo](https://coachbot-ai.streamlit.app/) and [desktop smoke test](#demo-screenshots-and-evidence) | Desktop demo generation verified. Mobile and live Gemini evidence pending. |
+| README demonstration screenshots | [Demo screenshots and evidence](#demo-screenshots-and-evidence) | Current desktop interface and earlier deployed plan example. Mobile evidence is available through the browser workflow. |
+| Public Streamlit deployment | [Live demo](https://coachbot-ai.streamlit.app/) and [demo screenshots](#demo-screenshots-and-evidence) | Desktop deployment and local mobile demo flow verified. Live Gemini evidence pending. |
 | Submission PDF | [Deploy and submit](#deploy-and-submit) | Include the repository URL, student name, registration number, CRS, course and school. |
 
 ## Demo screenshots and evidence
 
-The deployed app generated a seven-day football plan in Demo mode for a fictional profile.
+The Plan page pictured above pairs the athlete profile wizard with a coaching plan preview. Plan, Check-ins, Match Prep, Coach Chat and Prompt Lab share an animated running-track backdrop, with a different accent light for each page.
+
+The earlier deployed demo below shows a seven-day football plan generated for a fictional profile.
 
 ![Deployed CoachBot AI showing the profile wizard, safety check and weekly timeline](docs/screenshots/deployed-demo-plan.jpg)
 

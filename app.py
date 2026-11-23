@@ -11,6 +11,7 @@ from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected,
 from ui.components import (render_brand, render_header, render_plan, render_plan_preview, render_shield,
                            render_skeleton, render_tool_card)
 from ui.arena import render_home_hero
+from ui.backdrop import inject_tool_backdrop
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
                       render_exports, render_preparation, safety_badge)
@@ -178,6 +179,7 @@ def main():
     if page == "Home":
         render_home(sport, reduce_motion)
         return
+    inject_tool_backdrop()
     icon, description = PAGES[page]
     render_header(sport, position, reduce_motion, page, icon, description)
     locale = LANGUAGES[st.session_state[DRAFT]["language"]]
