@@ -46,7 +46,8 @@ def test_no_key_startup_and_submission(app, monkeypatch):
     generate = Mock()
     monkeypatch.setattr(coach, "generate", generate)
     app.run()
-    assert '<h1>Training plans<br><span class="cb-hero-accent">for the way you play.</span></h1>' in markup(app)
+    assert '<span class="cb-hero-lead">Training plans</span>' in markup(app)
+    assert '<span class="cb-hero-accent">for the way you play.</span>' in markup(app)
     assert app.radio(key="cb_page").value == "Home"
     click(app, "Build a plan")
     assert app.radio(key="cb_page").value == "Plan"

@@ -10,7 +10,7 @@ from i18n import LANGUAGES, gate_copy
 from planning import Cooldown, ProfileInputTooLong, ProfileInstructionsRejected, public_gate, run_plan
 from ui.components import (render_brand, render_header, render_plan, render_plan_preview, render_shield,
                            render_skeleton, render_tool_card)
-from ui.home import render_home_hero
+from ui.arena import render_home_hero
 from ui.theme import inject_css
 from ui.tools import (COOLDOWN_MESSAGE, VERDICTS, current_entries, render_chat, render_checkins,
                       render_exports, render_preparation, safety_badge)
