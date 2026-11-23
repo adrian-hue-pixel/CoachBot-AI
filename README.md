@@ -6,10 +6,6 @@ CoachBot AI is a Streamlit assistant for young football, cricket and basketball 
 
 ![CoachBot AI Plan page with the athlete profile, plan preview and running-track backdrop](docs/screenshots/plan-workspace.webp)
 
-**Course** · Generative AI  
-**School** · Jain Vidyalaya  
-**Canva** · [View the presentation](https://canva.link/mlt7hjm79ahdp7q)
-
 ## Try CoachBot
 
 1. On **Home**, select **Build a plan**. Pick a sport, position and coaching module, then complete the athlete profile. The public demo uses sample results.
@@ -179,7 +175,7 @@ Ask a PE teacher to review a sample without seeing the conditions. Report mean a
 - [ ] If Community Cloud's uv installer rejects `--only-binary=:all:` in `requirements.txt`, remove that line. CI should still pass `--only-binary=:all:` via pip.
 - [x] Publish the [Streamlit demo](https://coachbot-ai.streamlit.app/) and capture the desktop profile-to-plan flow.
 - [ ] Add the remaining evidence screenshots and scored research results. Verify assessor access using the address in the brief.
-- [ ] Submit the PDF with the repository link, student full name, candidate registration number, CRS **Artificial Intelligence**, course **Generative AI**, and school name.
+- [ ] Submit the PDF with the repository link, student full name, candidate registration number, CRS **Artificial Intelligence**, course **Generative A.I.**, and school name.
 
 Community Cloud deployment settings are documented by [Streamlit](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
 
@@ -320,7 +316,7 @@ An independent spot-check, using 14 unsafe phrasings written outside the develop
 
 ## Assignment deliverables checklist
 
-Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative AI Summative Assessment 3 brief.
+Mapped to the evidence checklist on pages 9–10 of the Year 1 Generative A.I. Summative Assessment 3 brief.
 
 | Brief deliverable | Evidence in this project | Status |
 | --- | --- | --- |
